@@ -43,9 +43,8 @@ pub fn initialize() -> Result<Initialization, String> {
             data_directory.display()
         )
     })?;
-    fs::create_dir_all(data_directory.join("logs")).map_err(|error| {
-        format!("Could not create Parker's log directory: {error}")
-    })?;
+    fs::create_dir_all(data_directory.join("logs"))
+        .map_err(|error| format!("Could not create Parker's log directory: {error}"))?;
 
     let settings_path = data_directory.join("settings.env");
     let first_run = !settings_path.exists();

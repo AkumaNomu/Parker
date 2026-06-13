@@ -164,9 +164,9 @@ impl Recorder {
             .stdout(Stdio::null())
             .stderr(Stdio::from(log));
 
-        let mut child = command.spawn().map_err(|error| {
-            format!("Could not start FFmpeg at {}: {error}", ffmpeg.display())
-        })?;
+        let mut child = command
+            .spawn()
+            .map_err(|error| format!("Could not start FFmpeg at {}: {error}", ffmpeg.display()))?;
 
         thread::sleep(Duration::from_millis(350));
         if let Some(status) = child
