@@ -1,33 +1,57 @@
-name: Release
+# This workflow builds a Windows release binary and publishes it as a GitHub release asset
+# It runs on pushes to the main branch and on tag creation (v*).
+
+name: Build & Publish Release
 
 on:
   push:
-    tags:
-      - "v*"
-
-permissions:
-  contents: write
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
 
 jobs:
-  release:
+  build-windows:
     runs-on: windows-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install stable Rust
+      # Install Rust toolchain (stable) with the MSVC target (default)
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+          override: true
+          components: rustfmt
+
+      # Cache cargo registry and build artifacts to speed up builds
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles("**/Cargo.lock") }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # Build the project in release mode
+      - name: Build release binary
+        run: cargo build --release
+
+      # Package the binary (and any required assets) into a zip file
+      - name: Create zip archive
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
+          mkdir dist
+          copy target\\release\\parker.exe dist\\
+          # Add any additional runtime files here, e.g., README, config templates
+          7z a parker-win-x86_64.zip dist\\
 
-      - name: Build release package
-        shell: powershell
-        run: .\scripts\package-release.ps1
-
-      - name: Create GitHub release
+      # Create a GitHub release (if this is a tag) and upload the zip asset
+      - name: Publish Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release/*.zip
-            release/*.sha256
+          files: parker-win-x86_64.zip
           generate_release_notes: true
+          prerelease: false
