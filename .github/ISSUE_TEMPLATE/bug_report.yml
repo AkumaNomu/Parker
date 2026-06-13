@@ -1,0 +1,56 @@
+name: Bug report
+description: Report incorrect recording, OCR, clipboard, or installation behavior
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Affected workflow
+      options:
+        - Video recording
+        - OCR selection
+        - Clipboard paste
+        - Installation or startup
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Parker version
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version and build
+      placeholder: Windows 11 24H2, build 26100.x
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include monitor arrangement, DPI scaling, OCR language, and target paste application when relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and logs
+      description: Recording errors may be present in Videos\Parker\ffmpeg.log.
+    validations:
+      required: true

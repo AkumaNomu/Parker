@@ -1,0 +1,25 @@
+[package]
+name = "parker"
+version = "0.3.0"
+edition = "2021"
+authors = ["Akuma Nomu"]
+description = "A Windows capture utility for smart OCR, QR actions, and region video recording"
+readme = "README.md"
+license = "MIT"
+keywords = ["windows", "screen-recording", "ocr", "qrcode", "clipboard"]
+categories = ["multimedia::video", "multimedia::images", "os::windows-apis"]
+publish = false
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["bmp"] }
+rqrr = { version = "0.10.1", default-features = false, features = ["img"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true
+panic = "abort"
+
+[build-dependencies]
+embed-resource = "3.0"
