@@ -13,7 +13,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.3
 
       - name: Install stable Rust
         run: |
@@ -33,7 +33,7 @@ jobs:
         run: cargo build --locked --release
 
       - name: Upload executable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: parker-windows-x64
           path: target/release/parker.exe
