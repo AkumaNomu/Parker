@@ -20,6 +20,18 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup default stable
 
+      - name: Verify release tag
+        shell: powershell
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^\"]+)"').Matches[0].Groups[1].Value
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match Cargo version v$version"
+          }
+
+      - name: Run release checks
+        shell: powershell
+        run: .\scripts\check.ps1
+
       - name: Build release package
         shell: powershell
         run: .\scripts\package-release.ps1
@@ -28,6 +40,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            release/*.exe
             release/*.zip
             release/*.sha256
           generate_release_notes: true

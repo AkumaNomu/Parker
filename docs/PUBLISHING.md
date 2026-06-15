@@ -24,10 +24,10 @@ git remote add origin https://github.com/YOUR_USERNAME/parker.git
 git push -u origin main
 ```
 
-After the first push, the CI workflow builds Parker on a Windows runner. Push a
-tag to create a release ZIP:
+After the first push, CI builds Parker on a Windows runner. Push a tag matching
+`Cargo.toml` to create setup EXE, portable EXE, ZIP, and SHA-256 assets:
 
 ```powershell
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.4.0
+git push origin v0.4.0
 ```

@@ -2,6 +2,19 @@
 
 All notable changes to Parker are documented here.
 
+## [0.4.0] - 2026-06-15
+
+### Added
+
+- Persistent draggable recording timer with a direct stop control.
+- Capture exclusion and outside-region placement for Parker's recording control.
+- One-click self-extracting Windows setup EXE and standalone portable EXE release assets.
+
+### Fixed
+
+- Rust 1.93 type inference and strict Clippy compatibility in OCR and tray code.
+- Installed-app version now follows the packaged application version.
+
 ## [0.3.0] - 2026-06-13
 
 ### Added

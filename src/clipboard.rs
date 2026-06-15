@@ -48,7 +48,10 @@ pub fn copy_file(path: &Path, owner: HWND) -> Result<(), String> {
 
 pub fn copy_text(text: &str, owner: HWND) -> Result<(), String> {
     let _guard = open_and_clear(owner)?;
-    let normalized = text.replace("\r\n", "\n").replace('\r', "\n").replace('\n', "\r\n");
+    let normalized = text
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .replace('\n', "\r\n");
     let mut utf16: Vec<u16> = normalized.encode_utf16().collect();
     utf16.push(0);
     let byte_count = utf16

@@ -47,6 +47,21 @@ function Resolve-ParkerExecutable {
     throw "parker.exe was not found. Use a GitHub release package or install Rust and run this script from the repository root."
 }
 
+function Resolve-ParkerVersion {
+    $versionFile = Join-Path $PSScriptRoot "version.txt"
+    if (Test-Path $versionFile) {
+        return (Get-Content $versionFile -Raw).Trim()
+    }
+
+    $cargoFile = Join-Path $PSScriptRoot "Cargo.toml"
+    if (Test-Path $cargoFile) {
+        $match = Select-String -Path $cargoFile -Pattern '^version\s*=\s*"([^\"]+)"' | Select-Object -First 1
+        if ($match) { return $match.Matches[0].Groups[1].Value }
+    }
+
+    return "0.4.0"
+}
+
 function New-Shortcut(
     [string]$Path,
     [string]$Target,
@@ -64,6 +79,7 @@ function New-Shortcut(
 
 Write-Step "Preparing a clean per-user installation..."
 $sourceExe = Resolve-ParkerExecutable
+$version = Resolve-ParkerVersion
 $installDir = Join-Path $env:LOCALAPPDATA "Parker"
 $installedExe = Join-Path $installDir "parker.exe"
 
@@ -156,7 +172,7 @@ if ($NoStartup) {
 $uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Parker"
 New-Item -Path $uninstallKey -Force | Out-Null
 New-ItemProperty -Path $uninstallKey -Name DisplayName -Value "Parker" -PropertyType String -Force | Out-Null
-New-ItemProperty -Path $uninstallKey -Name DisplayVersion -Value "0.3.0" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $uninstallKey -Name DisplayVersion -Value $version -PropertyType String -Force | Out-Null
 New-ItemProperty -Path $uninstallKey -Name Publisher -Value "Akuma Nomu" -PropertyType String -Force | Out-Null
 New-ItemProperty -Path $uninstallKey -Name InstallLocation -Value $installDir -PropertyType String -Force | Out-Null
 New-ItemProperty -Path $uninstallKey -Name DisplayIcon -Value $installedExe -PropertyType String -Force | Out-Null

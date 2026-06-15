@@ -25,7 +25,10 @@ higher-cost upscale retry when the fast first pass finds nothing.
 ### Region recording — `Ctrl + Shift + F9`
 
 Press the hotkey, drag over a region, and Parker starts recording it. The mouse
-cursor is always excluded. Press the same hotkey again to stop.
+cursor is always excluded. A draggable timer and stop control remains visible
+while recording. Parker places it outside the selected region when space allows
+and asks Windows to exclude it from captured output. Click stop or press the same
+hotkey again to finish.
 
 Parker then automatically:
 
@@ -73,8 +76,9 @@ Press `Esc` or right-click to cancel a selector.
 
 ## Install a GitHub release
 
-1. Download and extract the release ZIP.
-2. Double-click `setup.cmd`.
+Download `parker-setup-<version>-windows-x64.exe` from the latest GitHub Release
+and open it. The release also includes a portable `parker-<version>-windows-x64.exe`
+and a ZIP for manual installation.
 
 The per-user installer does not require administrator access. It:
 

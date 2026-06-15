@@ -2,8 +2,9 @@
 
 ## Release installation
 
-Extract a GitHub release and double-click `setup.cmd`. It invokes `install.ps1`
-with a temporary PowerShell execution-policy bypass.
+Download and open `parker-setup-<version>-windows-x64.exe` from GitHub Releases.
+It extracts the release payload and invokes `install.ps1` with a temporary
+PowerShell execution-policy bypass. The ZIP remains available for manual setup.
 
 The installer is per-user and supports a prebuilt release or a source checkout.
 It finds `parker.exe` beside the script, under `dist`, or builds it with Cargo.
@@ -34,7 +35,7 @@ the script. Process environment variables override values from `settings.env`.
 
 ## Updating
 
-Run the newer release's `setup.cmd`. Existing settings are preserved. The
+Open the newer release's setup EXE. Existing settings are preserved. The
 executable and support files are replaced after the running Parker process is
 stopped.
 

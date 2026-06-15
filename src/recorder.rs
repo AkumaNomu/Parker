@@ -1,6 +1,7 @@
 use crate::selector::ScreenRect;
 use crate::win::{
-    GetLocalTime, BELOW_NORMAL_PRIORITY_CLASS, CREATE_NO_WINDOW, SYSTEMTIME,
+    GetLocalTime, PostMessageW, BELOW_NORMAL_PRIORITY_CLASS, CREATE_NO_WINDOW, HWND, SYSTEMTIME,
+    UINT, WM_APP,
 };
 use std::env;
 use std::fs::{self, OpenOptions};
@@ -8,6 +9,7 @@ use std::io::Write;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::mpsc;
 use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
@@ -19,12 +21,22 @@ pub struct RecordingResult {
     pub final_bytes: u64,
 }
 
+pub const WM_RECORDING_FINALIZED: UINT = WM_APP + 3;
+
 pub struct Recorder {
     output_directory: PathBuf,
     child: Option<Child>,
     capture_path: Option<PathBuf>,
     final_path: Option<PathBuf>,
     ffmpeg_path: Option<PathBuf>,
+    last_error: Option<String>,
+}
+
+struct ActiveRecording {
+    child: Child,
+    capture_path: PathBuf,
+    final_path: PathBuf,
+    ffmpeg_path: PathBuf,
 }
 
 #[derive(Clone, Debug)]
@@ -81,15 +93,23 @@ impl Recorder {
             capture_path: None,
             final_path: None,
             ffmpeg_path: None,
+            last_error: None,
         })
     }
 
     pub fn is_recording(&mut self) -> bool {
         if let Some(child) = self.child.as_mut() {
             match child.try_wait() {
-                Ok(Some(_)) => {
+                Ok(Some(status)) => {
+                    let capture = self.capture_path.take();
+                    let capture_note = capture
+                        .as_ref()
+                        .map(|path| format!(" The partial capture remains at {}.", path.display()))
+                        .unwrap_or_default();
+                    self.last_error = Some(format!(
+                        "FFmpeg stopped unexpectedly with {status}.{capture_note}"
+                    ));
                     self.child = None;
-                    self.capture_path = None;
                     self.final_path = None;
                     self.ffmpeg_path = None;
                     false
@@ -100,6 +120,10 @@ impl Recorder {
         } else {
             false
         }
+    }
+
+    pub fn take_runtime_error(&mut self) -> Option<String> {
+        self.last_error.take()
     }
 
     pub fn start(&mut self, rect: ScreenRect) -> Result<PathBuf, String> {
@@ -131,7 +155,7 @@ impl Recorder {
             .arg("warning")
             .arg("-y")
             .arg("-thread_queue_size")
-            .arg("1024")
+            .arg("64")
             .arg("-f")
             .arg("gdigrab")
             .arg("-framerate")
@@ -186,46 +210,75 @@ impl Recorder {
         Ok(final_path)
     }
 
-    pub fn stop(&mut self) -> Result<RecordingResult, String> {
-        let mut child = self
-            .child
-            .take()
-            .ok_or_else(|| "No recording is active.".to_string())?;
-        let capture_path = self
-            .capture_path
-            .take()
-            .ok_or_else(|| "The active recording has no capture path.".to_string())?;
-        let final_path = self
-            .final_path
-            .take()
-            .ok_or_else(|| "The active recording has no final output path.".to_string())?;
-        let ffmpeg = self
-            .ffmpeg_path
-            .take()
-            .ok_or_else(|| "The active recording has no FFmpeg path.".to_string())?;
-
-        if let Some(mut input) = child.stdin.take() {
-            let _ = input.write_all(b"q\n");
-            let _ = input.flush();
+    pub fn stop_in_background(
+        &mut self,
+        notify_window: HWND,
+    ) -> Result<mpsc::Receiver<Result<RecordingResult, String>>, String> {
+        if self.child.is_none()
+            || self.capture_path.is_none()
+            || self.final_path.is_none()
+            || self.ffmpeg_path.is_none()
+        {
+            return Err("The active recording state is incomplete.".to_string());
         }
 
-        wait_for_capture(&mut child)?;
-        let source_bytes = verify_nonempty(&capture_path, "capture")?;
-        let encoder = post_process(&ffmpeg, &capture_path, &final_path, &self.output_directory)?;
-        let final_bytes = verify_nonempty(&final_path, "recording")?;
-        let _ = fs::remove_file(&capture_path);
+        let active = ActiveRecording {
+            child: self.child.take().expect("child checked above"),
+            capture_path: self
+                .capture_path
+                .take()
+                .expect("capture path checked above"),
+            final_path: self.final_path.take().expect("final path checked above"),
+            ffmpeg_path: self.ffmpeg_path.take().expect("FFmpeg path checked above"),
+        };
+        let output_directory = self.output_directory.clone();
+        let notify_window = notify_window as usize;
+        let (sender, receiver) = mpsc::sync_channel(1);
 
-        Ok(RecordingResult {
-            path: final_path,
-            encoder,
-            source_bytes,
-            final_bytes,
-        })
+        thread::spawn(move || {
+            let result = finalize_recording(active, &output_directory);
+            let _ = sender.send(result);
+            unsafe {
+                PostMessageW(notify_window as HWND, WM_RECORDING_FINALIZED, 0, 0);
+            }
+        });
+
+        Ok(receiver)
     }
 
     pub fn output_directory(&self) -> &Path {
         &self.output_directory
     }
+}
+
+fn finalize_recording(
+    mut active: ActiveRecording,
+    output_directory: &Path,
+) -> Result<RecordingResult, String> {
+    let ActiveRecording {
+        child,
+        capture_path,
+        final_path,
+        ffmpeg_path,
+    } = &mut active;
+
+    if let Some(mut input) = child.stdin.take() {
+        let _ = input.write_all(b"q\n");
+        let _ = input.flush();
+    }
+
+    wait_for_capture(child)?;
+    let source_bytes = verify_nonempty(capture_path, "capture")?;
+    let encoder = post_process(ffmpeg_path, capture_path, final_path, output_directory)?;
+    let final_bytes = verify_nonempty(final_path, "recording")?;
+    let _ = fs::remove_file(capture_path);
+
+    Ok(RecordingResult {
+        path: final_path.clone(),
+        encoder,
+        source_bytes,
+        final_bytes,
+    })
 }
 
 fn wait_for_capture(child: &mut Child) -> Result<(), String> {
@@ -323,7 +376,11 @@ fn post_process(
     ))
 }
 
-fn append_encoder_arguments(command: &mut Command, encoder: EncoderKind, config: &CompressionConfig) {
+fn append_encoder_arguments(
+    command: &mut Command,
+    encoder: EncoderKind,
+    config: &CompressionConfig,
+) {
     match encoder {
         EncoderKind::Nvenc => {
             command
@@ -396,8 +453,7 @@ fn encoder_candidates(ffmpeg: &Path) -> Result<Vec<EncoderKind>, String> {
             "software" | "x264" | "libx264" => EncoderKind::X264,
             _ => {
                 return Err(
-                    "PARKER_VIDEO_ENCODER must be auto, nvenc, qsv, amf, or libx264."
-                        .to_string(),
+                    "PARKER_VIDEO_ENCODER must be auto, nvenc, qsv, amf, or libx264.".to_string(),
                 )
             }
         };
@@ -444,11 +500,7 @@ fn compression_config() -> Result<CompressionConfig, String> {
         "compact" => (28, "slow", 1600, 900),
         "balanced" => (24, "medium", 1920, 1080),
         "quality" => (20, "slow", 2560, 1440),
-        _ => {
-            return Err(
-                "PARKER_COMPRESSION must be compact, balanced, or quality.".to_string(),
-            )
-        }
+        _ => return Err("PARKER_COMPRESSION must be compact, balanced, or quality.".to_string()),
     };
 
     let crf = env::var("PARKER_POST_CRF")
@@ -466,8 +518,15 @@ fn compression_config() -> Result<CompressionConfig, String> {
 
     let preset = env::var("PARKER_POST_PRESET").unwrap_or_else(|_| default_preset.to_string());
     let allowed = [
-        "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow",
-        "slower", "veryslow",
+        "ultrafast",
+        "superfast",
+        "veryfast",
+        "faster",
+        "fast",
+        "medium",
+        "slow",
+        "slower",
+        "veryslow",
     ];
     if !allowed.contains(&preset.as_str()) {
         return Err("PARKER_POST_PRESET is not a supported x264 preset.".to_string());

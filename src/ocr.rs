@@ -121,8 +121,7 @@ pub fn recognize_smart(path: &Path) -> Result<OcrResult, String> {
                     text,
                 })
                 .ok_or_else(|| {
-                    "The selected region did not contain a consistently aligned table."
-                        .to_string()
+                    "The selected region did not contain a consistently aligned table.".to_string()
                 })
         }
         OcrMode::Auto => {
@@ -260,7 +259,10 @@ fn normalize_code(text: &str) -> String {
 }
 
 fn looks_like_code(text: &str) -> bool {
-    let lines: Vec<&str> = text.lines().filter(|line| !line.trim().is_empty()).collect();
+    let lines: Vec<&str> = text
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .collect();
     if lines.len() < 2 {
         return false;
     }
@@ -268,9 +270,26 @@ fn looks_like_code(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
     let mut score = 0i32;
     let strong_tokens = [
-        "=>", "::", "#include", "</", "function ", "const ", "let ", "var ",
-        "def ", "class ", "import ", "from ", "return ", "fn ", "use ",
-        "public ", "private ", "SELECT ", "FROM ", "WHERE ",
+        "=>",
+        "::",
+        "#include",
+        "</",
+        "function ",
+        "const ",
+        "let ",
+        "var ",
+        "def ",
+        "class ",
+        "import ",
+        "from ",
+        "return ",
+        "fn ",
+        "use ",
+        "public ",
+        "private ",
+        "SELECT ",
+        "FROM ",
+        "WHERE ",
     ];
 
     for token in strong_tokens {
@@ -304,7 +323,10 @@ fn looks_like_code(text: &str) -> bool {
         .chars()
         .filter(|character| "{}[]();=<>:&|!".contains(*character))
         .count();
-    let non_space = text.chars().filter(|character| !character.is_whitespace()).count();
+    let non_space = text
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .count();
     if non_space > 0 && punctuation * 100 / non_space >= 8 {
         score += 3;
     }
@@ -349,12 +371,12 @@ fn reconstruct_text_from_tsv(tsv: &str) -> String {
         let first_left = words.first().map(|word| word.left).unwrap_or(global_left);
         let indent_columns = ((first_left - global_left).max(0) / median_character_width).min(24);
         let mut line = " ".repeat(indent_columns as usize);
-        let mut previous_right = None;
+        let mut previous_right: Option<i32> = None;
 
         for word in words {
             if let Some(right) = previous_right {
                 let gap = word.left - right;
-                let spaces = ((gap / median_character_width).max(1)).min(8);
+                let spaces = (gap / median_character_width).clamp(1, 8);
                 line.push_str(&" ".repeat(spaces as usize));
             }
             line.push_str(&word.text);
@@ -363,8 +385,10 @@ fn reconstruct_text_from_tsv(tsv: &str) -> String {
         lines.push(line.trim_end().to_string());
     }
 
-    lines.join("
-")
+    lines.join(
+        "
+",
+    )
 }
 
 fn extract_table(tsv: &str) -> Option<String> {
@@ -435,7 +459,7 @@ fn extract_table(tsv: &str) -> Option<String> {
         .map(|row| {
             row.cells
                 .iter()
-                .map(|cell| cell.text.replace('\t', " " ).replace('\r', " " ).replace('\n', " " ))
+                .map(|cell| cell.text.replace(['\t', '\r', '\n'], " "))
                 .collect::<Vec<_>>()
                 .join("\t")
         })
@@ -564,7 +588,11 @@ fn locate_tesseract() -> Option<PathBuf> {
     let mut candidates = Vec::new();
     for variable in ["ProgramFiles", "ProgramFiles(x86)"] {
         if let Some(root) = env::var_os(variable) {
-            candidates.push(PathBuf::from(root).join("Tesseract-OCR").join("tesseract.exe"));
+            candidates.push(
+                PathBuf::from(root)
+                    .join("Tesseract-OCR")
+                    .join("tesseract.exe"),
+            );
         }
     }
     if let Some(local) = env::var_os("LOCALAPPDATA") {

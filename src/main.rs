@@ -7,6 +7,7 @@ mod clipboard;
 mod ocr;
 mod qr;
 mod recorder;
+mod recording_indicator;
 mod screenshot;
 mod selector;
 mod settings;
@@ -16,12 +17,14 @@ mod win;
 
 use ocr::OcrKind;
 use recorder::{Recorder, RecordingResult};
+use recording_indicator::RecordingIndicator;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::ptr::null_mut;
+use std::sync::mpsc::Receiver;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tray::TrayAction;
 use win::*;
 
@@ -29,11 +32,13 @@ const HOTKEY_OCR: i32 = 1;
 const HOTKEY_RECORD: i32 = 2;
 const HOTKEY_FOLDER: i32 = 3;
 const HOTKEY_QUIT: i32 = 4;
+const APP_TIMER_ID: usize = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum AppAction {
     SmartCapture,
     ToggleRecording,
+    StopRecording,
     OpenRecordings,
     OpenSettings,
     Exit,
@@ -69,6 +74,10 @@ fn main() {
             return;
         }
     };
+    let mut recording_indicator: Option<RecordingIndicator> = None;
+    let mut finalization: Option<Receiver<Result<RecordingResult, String>>> = None;
+    let mut last_recording_finished: Option<Instant> = None;
+    let mut exit_after_finalization = false;
 
     let app_window = match create_app_window() {
         Ok(window) => window,
@@ -99,6 +108,9 @@ fn main() {
         let name = wide_null("TaskbarCreated");
         RegisterWindowMessageW(name.as_ptr())
     };
+    unsafe {
+        SetTimer(app_window, APP_TIMER_ID, 500, None);
+    }
 
     if initialization.first_run {
         toast::show(format!(
@@ -118,7 +130,34 @@ fn main() {
 
         if taskbar_created != 0 && message.message == taskbar_created {
             let _ = tray::add(app_window);
-            tray::set_recording(app_window, recorder.is_recording());
+            if finalization.is_some() {
+                tray::set_processing(app_window);
+            } else {
+                tray::set_recording(app_window, recorder.is_recording());
+            }
+            continue;
+        }
+
+        if message.message == recorder::WM_RECORDING_FINALIZED {
+            if let Some(receiver) = finalization.take() {
+                complete_recording(receiver, app_window);
+            }
+            tray::set_recording(app_window, false);
+            last_recording_finished = Some(Instant::now());
+            if exit_after_finalization {
+                break 'messages;
+            }
+            continue;
+        }
+
+        if message.message == WM_TIMER && message.wParam == APP_TIMER_ID {
+            if recording_indicator.is_some() && !recorder.is_recording() {
+                recording_indicator.take();
+                tray::set_recording(app_window, false);
+                if let Some(error) = recorder.take_runtime_error() {
+                    show_error(&error);
+                }
+            }
             continue;
         }
 
@@ -130,9 +169,17 @@ fn main() {
                 HOTKEY_QUIT => Some(AppAction::Exit),
                 _ => None,
             }
+        } else if message.message == recording_indicator::WM_RECORDING_INDICATOR_STOP {
+            Some(AppAction::StopRecording)
         } else if message.message == tray::WM_TRAY_CALLBACK {
             let recording = recorder.is_recording();
-            tray::handle_callback(app_window, message.lParam, recording).map(map_tray_action)
+            tray::handle_callback(
+                app_window,
+                message.lParam,
+                recording,
+                finalization.is_some(),
+            )
+            .map(map_tray_action)
         } else {
             None
         };
@@ -140,18 +187,45 @@ fn main() {
         if let Some(action) = action {
             match action {
                 AppAction::SmartCapture => {
-                    if recorder.is_recording() {
-                        show_error("Stop the active recording before starting a smart capture.");
+                    if recorder.is_recording() || finalization.is_some() {
+                        toast::show("Wait for the active recording to finish processing.");
                     } else {
                         run_smart_capture(app_window);
                     }
                 }
                 AppAction::ToggleRecording => {
-                    if recorder.is_recording() {
-                        finish_recording(&mut recorder, app_window);
-                        tray::set_recording(app_window, false);
-                    } else if start_region_recording(&mut recorder) {
-                        tray::set_recording(app_window, true);
+                    if finalization.is_some() {
+                        toast::show("Parker is still optimizing the previous recording.");
+                    } else if recorder.is_recording() {
+                        recording_indicator.take();
+                        finalization = begin_finish_recording(&mut recorder, app_window);
+                        if finalization.is_some() {
+                            tray::set_processing(app_window);
+                        }
+                    } else if last_recording_finished
+                        .is_some_and(|finished| finished.elapsed() < Duration::from_secs(1))
+                    {
+                        // Ignore a hotkey queued while FFmpeg was finishing.
+                    } else {
+                        recording_indicator.take();
+                        if let Some(selected) = start_region_recording(&mut recorder) {
+                            match RecordingIndicator::show(app_window, selected) {
+                                Ok(indicator) => recording_indicator = Some(indicator),
+                                Err(error) => toast::show(format!(
+                                    "Recording active without on-screen control: {error} Use Ctrl+Shift+F9 to stop."
+                                )),
+                            }
+                            tray::set_recording(app_window, true);
+                        }
+                    }
+                }
+                AppAction::StopRecording => {
+                    if recorder.is_recording() && finalization.is_none() {
+                        recording_indicator.take();
+                        finalization = begin_finish_recording(&mut recorder, app_window);
+                        if finalization.is_some() {
+                            tray::set_processing(app_window);
+                        }
                     }
                 }
                 AppAction::OpenRecordings => {
@@ -164,9 +238,23 @@ fn main() {
                 },
                 AppAction::Exit => {
                     if recorder.is_recording() {
-                        finish_recording(&mut recorder, app_window);
+                        recording_indicator.take();
+                        finalization = begin_finish_recording(&mut recorder, app_window);
+                        if finalization.is_some() {
+                            tray::set_processing(app_window);
+                        }
+                        exit_after_finalization = finalization.is_some();
+                        if exit_after_finalization {
+                            toast::show("Parker will exit after the recording is saved.");
+                        } else {
+                            break 'messages;
+                        }
+                    } else if finalization.is_some() {
+                        exit_after_finalization = true;
+                        toast::show("Parker will exit after the recording is saved.");
+                    } else {
+                        break 'messages;
                     }
-                    break 'messages;
                 }
             }
             continue;
@@ -181,6 +269,7 @@ fn main() {
     tray::remove(app_window);
     unregister_hotkeys(app_window);
     unsafe {
+        KillTimer(app_window, APP_TIMER_ID);
         DestroyWindow(app_window);
         CloseHandle(instance_guard);
     }
@@ -287,7 +376,7 @@ fn process_smart_capture(path: &Path, clipboard_owner: HWND) -> Result<(), Strin
     Ok(())
 }
 
-fn start_region_recording(recorder: &mut Recorder) -> bool {
+fn start_region_recording(recorder: &mut Recorder) -> Option<selector::ScreenRect> {
     signal_selection_started("Select the region to record.");
     let selected = match selector::select_region(
         "Drag over the region to record. The mouse cursor will never appear in the video.",
@@ -295,11 +384,11 @@ fn start_region_recording(recorder: &mut Recorder) -> bool {
         Ok(Some(rect)) => rect,
         Ok(None) => {
             signal_cancelled();
-            return false;
+            return None;
         }
         Err(error) => {
             show_error(&error);
-            return false;
+            return None;
         }
     };
 
@@ -307,26 +396,40 @@ fn start_region_recording(recorder: &mut Recorder) -> bool {
     match recorder.start(selected) {
         Ok(_) => {
             signal_recording_started();
-            true
+            Some(selected)
         }
         Err(error) => {
             show_error(&error);
-            false
+            None
         }
     }
 }
 
-fn finish_recording(recorder: &mut Recorder, clipboard_owner: HWND) {
+fn begin_finish_recording(
+    recorder: &mut Recorder,
+    app_window: HWND,
+) -> Option<Receiver<Result<RecordingResult, String>>> {
     toast::show("Stopping and optimizing the recording…");
-    match recorder.stop() {
-        Ok(result) => match clipboard::copy_file(&result.path, clipboard_owner) {
+    match recorder.stop_in_background(app_window) {
+        Ok(receiver) => Some(receiver),
+        Err(error) => {
+            show_error(&error);
+            None
+        }
+    }
+}
+
+fn complete_recording(receiver: Receiver<Result<RecordingResult, String>>, clipboard_owner: HWND) {
+    match receiver.recv() {
+        Ok(Ok(result)) => match clipboard::copy_file(&result.path, clipboard_owner) {
             Ok(()) => signal_file_copied(&result),
             Err(error) => show_error(&format!(
                 "The recording was saved to {}, but it could not be copied as a file: {error}",
                 result.path.display()
             )),
         },
-        Err(error) => show_error(&error),
+        Ok(Err(error)) => show_error(&error),
+        Err(_) => show_error("The recording finalizer ended without returning a result."),
     }
 }
 
@@ -453,7 +556,9 @@ fn signal_selection_started(_message: &str) {
 }
 
 fn signal_recording_started() {
-    toast::show("Region recording started. The cursor is hidden. Press Ctrl+Shift+F9 to finish.");
+    toast::show(
+        "Recording started. Drag the timer anywhere; click its stop button or press Ctrl+Shift+F9 to finish.",
+    );
     unsafe {
         Beep(880, 80);
         Beep(1175, 100);

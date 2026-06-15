@@ -7,6 +7,9 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
 
 Write-Host "Building Parker..."
 cargo build --release
+if ($LASTEXITCODE -ne 0) {
+    throw "cargo build --release failed with exit code $LASTEXITCODE"
+}
 
 $dist = Join-Path $PSScriptRoot "dist"
 New-Item -ItemType Directory -Force -Path $dist | Out-Null

@@ -28,8 +28,10 @@ pub type HGDIOBJ = HANDLE;
 pub type HPEN = HANDLE;
 pub type HDC = HANDLE;
 pub type HBITMAP = HANDLE;
+pub type HFONT = HANDLE;
 pub type HGLOBAL = HANDLE;
 pub type HMENU = HANDLE;
+pub type HRGN = HANDLE;
 pub type ATOM = WORD;
 pub type COLORREF = DWORD;
 
@@ -161,6 +163,7 @@ pub const CS_VREDRAW: UINT = 0x0001;
 pub const CS_HREDRAW: UINT = 0x0002;
 
 pub const WM_DESTROY: UINT = 0x0002;
+pub const WM_CLOSE: UINT = 0x0010;
 pub const WM_PAINT: UINT = 0x000F;
 pub const WM_KEYDOWN: UINT = 0x0100;
 pub const WM_TIMER: UINT = 0x0113;
@@ -190,6 +193,8 @@ pub const SW_SHOWNOACTIVATE: INT = 4;
 pub const SW_SHOW: INT = 5;
 pub const SW_SHOWNORMAL: INT = 1;
 pub const LWA_ALPHA: DWORD = 0x0000_0002;
+pub const SWP_NOSIZE: UINT = 0x0001;
+pub const SWP_NOACTIVATE: UINT = 0x0010;
 
 pub const SM_CXSCREEN: INT = 0;
 pub const SM_CYSCREEN: INT = 1;
@@ -204,6 +209,11 @@ pub const BLACK_BRUSH: INT = 4;
 pub const NULL_BRUSH: INT = 5;
 pub const PS_SOLID: INT = 0;
 pub const TRANSPARENT: INT = 1;
+pub const FW_NORMAL: INT = 400;
+pub const FW_SEMIBOLD: INT = 600;
+pub const DEFAULT_CHARSET: DWORD = 1;
+pub const CLEARTYPE_QUALITY: DWORD = 5;
+pub const DEFAULT_PITCH: DWORD = 0;
 
 pub const DT_LEFT: UINT = 0x0000;
 pub const DT_VCENTER: UINT = 0x0004;
@@ -271,7 +281,12 @@ extern "system" {
         flags: DWORD,
     ) -> BOOL;
     pub fn GetSystemMetrics(index: INT) -> INT;
-    pub fn SystemParametersInfoW(action: UINT, param: UINT, value: *mut c_void, flags: UINT) -> BOOL;
+    pub fn SystemParametersInfoW(
+        action: UINT,
+        param: UINT,
+        value: *mut c_void,
+        flags: UINT,
+    ) -> BOOL;
     pub fn LoadCursorW(instance: HINSTANCE, cursorName: *const u16) -> HCURSOR;
     pub fn BeginPaint(hWnd: HWND, paint: *mut PAINTSTRUCT) -> HDC;
     pub fn EndPaint(hWnd: HWND, paint: *const PAINTSTRUCT) -> BOOL;
@@ -281,17 +296,27 @@ extern "system" {
     pub fn GetCursorPos(point: *mut POINT) -> BOOL;
     pub fn SetCapture(hWnd: HWND) -> HWND;
     pub fn ReleaseCapture() -> BOOL;
-    pub fn DrawTextW(
-        hdc: HDC,
-        text: *const u16,
-        count: INT,
-        rect: *mut RECT,
-        format: UINT,
-    ) -> INT;
+    pub fn DrawTextW(hdc: HDC, text: *const u16, count: INT, rect: *mut RECT, format: UINT) -> INT;
     pub fn SetProcessDpiAwarenessContext(value: HANDLE) -> BOOL;
     pub fn SetWindowDisplayAffinity(hWnd: HWND, affinity: DWORD) -> BOOL;
+    pub fn SetWindowPos(
+        hWnd: HWND,
+        insertAfter: HWND,
+        x: INT,
+        y: INT,
+        width: INT,
+        height: INT,
+        flags: UINT,
+    ) -> BOOL;
+    pub fn GetWindowRect(hWnd: HWND, rect: *mut RECT) -> BOOL;
+    pub fn SetWindowRgn(hWnd: HWND, region: HRGN, redraw: BOOL) -> INT;
     pub fn MessageBoxW(hWnd: HWND, text: *const u16, caption: *const u16, kind: UINT) -> INT;
-    pub fn SetTimer(hWnd: HWND, id: usize, interval: UINT, callback: Option<unsafe extern "system" fn(HWND, UINT, usize, DWORD)>) -> usize;
+    pub fn SetTimer(
+        hWnd: HWND,
+        id: usize,
+        interval: UINT,
+        callback: Option<unsafe extern "system" fn(HWND, UINT, usize, DWORD)>,
+    ) -> usize;
     pub fn KillTimer(hWnd: HWND, id: usize) -> BOOL;
     pub fn PostQuitMessage(exitCode: INT);
     pub fn OpenClipboard(hWnd: HWND) -> BOOL;
@@ -311,6 +336,40 @@ extern "system" {
     pub fn DeleteObject(object: HGDIOBJ) -> BOOL;
     pub fn GetStockObject(index: INT) -> HGDIOBJ;
     pub fn Rectangle(hdc: HDC, left: INT, top: INT, right: INT, bottom: INT) -> BOOL;
+    pub fn RoundRect(
+        hdc: HDC,
+        left: INT,
+        top: INT,
+        right: INT,
+        bottom: INT,
+        ellipseWidth: INT,
+        ellipseHeight: INT,
+    ) -> BOOL;
+    pub fn Ellipse(hdc: HDC, left: INT, top: INT, right: INT, bottom: INT) -> BOOL;
+    pub fn CreateRoundRectRgn(
+        left: INT,
+        top: INT,
+        right: INT,
+        bottom: INT,
+        ellipseWidth: INT,
+        ellipseHeight: INT,
+    ) -> HRGN;
+    pub fn CreateFontW(
+        height: INT,
+        width: INT,
+        escapement: INT,
+        orientation: INT,
+        weight: INT,
+        italic: DWORD,
+        underline: DWORD,
+        strikeOut: DWORD,
+        charSet: DWORD,
+        outPrecision: DWORD,
+        clipPrecision: DWORD,
+        quality: DWORD,
+        pitchAndFamily: DWORD,
+        face: *const u16,
+    ) -> HFONT;
     pub fn SetTextColor(hdc: HDC, color: COLORREF) -> COLORREF;
     pub fn SetBkMode(hdc: HDC, mode: INT) -> INT;
     pub fn CreateCompatibleDC(hdc: HDC) -> HDC;
@@ -421,6 +480,7 @@ pub const NIF_SHOWTIP: UINT = 0x0000_0080;
 pub const NOTIFYICON_VERSION_4: UINT = 4;
 
 pub const MF_STRING: UINT = 0x0000_0000;
+pub const MF_GRAYED: UINT = 0x0000_0001;
 pub const MF_SEPARATOR: UINT = 0x0000_0800;
 pub const TPM_RIGHTBUTTON: UINT = 0x0000_0002;
 pub const TPM_NONOTIFY: UINT = 0x0000_0080;

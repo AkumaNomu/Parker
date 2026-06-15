@@ -46,32 +46,45 @@ pub fn remove(window: HWND) {
 }
 
 pub fn set_recording(window: HWND, recording: bool) {
-    let mut data = base_data(window);
-    data.uFlags = NIF_TIP | NIF_ICON;
-    data.hIcon = load_app_icon();
-    copy_wide(
-        &mut data.szTip,
+    set_status(
+        window,
         if recording {
             "Parker — recording region (Ctrl+Shift+F9 to stop)"
         } else {
             "Parker — ready"
         },
     );
+}
+
+pub fn set_processing(window: HWND) {
+    set_status(window, "Parker — optimizing recording");
+}
+
+fn set_status(window: HWND, tooltip: &str) {
+    let mut data = base_data(window);
+    data.uFlags = NIF_TIP | NIF_ICON;
+    data.hIcon = load_app_icon();
+    copy_wide(&mut data.szTip, tooltip);
     unsafe {
         Shell_NotifyIconW(NIM_MODIFY, &mut data);
     }
 }
 
-pub fn handle_callback(window: HWND, lparam: LPARAM, recording: bool) -> Option<TrayAction> {
+pub fn handle_callback(
+    window: HWND,
+    lparam: LPARAM,
+    recording: bool,
+    processing: bool,
+) -> Option<TrayAction> {
     let notification = (lparam as usize & 0xffff) as UINT;
     match notification {
         WM_LBUTTONDBLCLK => Some(TrayAction::OpenRecordings),
-        WM_RBUTTONUP | WM_CONTEXTMENU => show_menu(window, recording),
+        WM_RBUTTONUP | WM_CONTEXTMENU => show_menu(window, recording, processing),
         _ => None,
     }
 }
 
-fn show_menu(window: HWND, recording: bool) -> Option<TrayAction> {
+fn show_menu(window: HWND, recording: bool, processing: bool) -> Option<TrayAction> {
     unsafe {
         let menu = CreatePopupMenu();
         if menu.is_null() {
@@ -79,15 +92,24 @@ fn show_menu(window: HWND, recording: bool) -> Option<TrayAction> {
         }
 
         append(menu, CMD_SMART_CAPTURE, "Smart capture\tCtrl+Shift+F8");
-        append(
-            menu,
-            CMD_RECORD,
-            if recording {
-                "Stop and optimize recording\tCtrl+Shift+F9"
-            } else {
-                "Record a region\tCtrl+Shift+F9"
-            },
-        );
+        if processing {
+            append_with_flags(
+                menu,
+                CMD_RECORD,
+                "Optimizing recording…",
+                MF_STRING | MF_GRAYED,
+            );
+        } else {
+            append(
+                menu,
+                CMD_RECORD,
+                if recording {
+                    "Stop and optimize recording\tCtrl+Shift+F9"
+                } else {
+                    "Record a region\tCtrl+Shift+F9"
+                },
+            );
+        }
         AppendMenuW(menu, MF_SEPARATOR, 0, null_mut());
         append(menu, CMD_OPEN_RECORDINGS, "Open recordings\tCtrl+Shift+F10");
         append(menu, CMD_OPEN_SETTINGS, "Settings");
@@ -121,16 +143,21 @@ fn show_menu(window: HWND, recording: bool) -> Option<TrayAction> {
 }
 
 unsafe fn append(menu: HMENU, id: UINT, label: &str) {
+    append_with_flags(menu, id, label, MF_STRING);
+}
+
+unsafe fn append_with_flags(menu: HMENU, id: UINT, label: &str, flags: UINT) {
     let label = wide_null(label);
-    AppendMenuW(menu, MF_STRING, id as usize, label.as_ptr());
+    AppendMenuW(menu, flags, id as usize, label.as_ptr());
 }
 
 fn base_data(window: HWND) -> NOTIFYICONDATAW {
-    let mut data = NOTIFYICONDATAW::default();
-    data.cbSize = size_of::<NOTIFYICONDATAW>() as DWORD;
-    data.hWnd = window;
-    data.uID = TRAY_ICON_ID;
-    data
+    NOTIFYICONDATAW {
+        cbSize: size_of::<NOTIFYICONDATAW>() as DWORD,
+        hWnd: window,
+        uID: TRAY_ICON_ID,
+        ..Default::default()
+    }
 }
 
 fn load_app_icon() -> HICON {
