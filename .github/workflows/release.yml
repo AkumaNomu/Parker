@@ -15,7 +15,36 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6.0.3
 
-      - name: Install stable Rust
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles("**/Cargo.lock") }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run clippy and rustfmt
+        run: |
+          cargo fmt --check
+          cargo clippy -- -D warnings
+
+      # Build the project in release mode
+      - name: Build release binary
+        run: cargo build --release
+
+      # Package the binary (and any required assets) into a zip file
+      - name: Create zip archive
+>>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable

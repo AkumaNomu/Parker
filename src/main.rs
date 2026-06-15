@@ -14,6 +14,8 @@ mod settings;
 mod toast;
 mod tray;
 mod win;
+mod updater;
+mod config_ui;
 
 use ocr::OcrKind;
 use recorder::{Recorder, RecordingResult};
@@ -58,6 +60,27 @@ fn main() {
             return;
         }
     };
+
+    // Check for self‑update flag
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--self-update") {
+        if let Err(err) = updater::check_self_update() {
+            show_error(&err);
+        }
+    }
+    // If user runs "config" subcommand, launch terminal UI and exit
+    if args.get(1).map(|s| s.as_str()) == Some("config") {
+        if let Err(err) = config_ui::run_config_ui() {
+            show_error(&err);
+        }
+        return;
+    }
+
+    if args.get(1).map(|s| s.as_str()) == Some("batch") {
+        let dir = args.get(2).map(Path::new).unwrap_or_else(|| Path::new("."));
+        batch_process(dir);
+        return;
+    }
 
     let initialization = match settings::initialize() {
         Ok(value) => value,
@@ -493,13 +516,52 @@ unsafe extern "system" fn app_window_proc(
     DefWindowProcW(window, message, wparam, lparam)
 }
 
+fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, String) {
+    let s = std::env::var(env_var).unwrap_or_default().to_ascii_uppercase();
+    let key = match s.as_str() {
+        "F1" => 0x70,
+        "F2" => 0x71,
+        "F3" => 0x72,
+        "F4" => 0x73,
+        "F5" => 0x74,
+        "F6" => 0x75,
+        "F7" => 0x76,
+        "F8" => VK_F8,
+        "F9" => VK_F9,
+        "F10" => VK_F10,
+        "F11" => 0x7A,
+        "F12" => VK_F12,
+        s if s.len() == 1 => {
+            let c = s.chars().next().unwrap();
+            if c.is_ascii_alphanumeric() {
+                c as UINT
+            } else {
+                default_key
+            }
+        }
+        _ => default_key,
+    };
+    
+    let name = if key == default_key {
+        default_name.to_string()
+    } else {
+        format!("Ctrl+Shift+{}", s)
+    };
+    (key, name)
+}
+
 fn register_hotkeys(window: HWND) -> Result<(), String> {
-    let modifiers = MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT;
-    let bindings = [
-        (HOTKEY_OCR, VK_F8, "Ctrl+Shift+F8"),
-        (HOTKEY_RECORD, VK_F9, "Ctrl+Shift+F9"),
-        (HOTKEY_FOLDER, VK_F10, "Ctrl+Shift+F10"),
-        (HOTKEY_QUIT, VK_F12, "Ctrl+Shift+F12"),
+    let modifiers = (MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT) as u32;
+    let (ocr_key, ocr_name) = parse_hotkey("PARKER_HOTKEY_OCR", VK_F8 as u32, "Ctrl+Shift+F8");
+    let (rec_key, rec_name) = parse_hotkey("PARKER_HOTKEY_RECORD", VK_F9 as u32, "Ctrl+Shift+F9");
+    let (fol_key, fol_name) = parse_hotkey("PARKER_HOTKEY_FOLDER", VK_F10 as u32, "Ctrl+Shift+F10");
+    let (quit_key, quit_name) = parse_hotkey("PARKER_HOTKEY_QUIT", VK_F12 as u32, "Ctrl+Shift+F12");
+
+    let bindings: [(i32, u32, String); 4] = [
+        (HOTKEY_OCR, ocr_key, ocr_name),
+        (HOTKEY_RECORD, rec_key, rec_name),
+        (HOTKEY_FOLDER, fol_key, fol_name),
+        (HOTKEY_QUIT, quit_key, quit_name),
     ];
 
     for (id, key, label) in bindings {
@@ -636,4 +698,65 @@ fn signal_error() {
     unsafe {
         Beep(260, 220);
     }
+}
+
+fn batch_process(dir: &Path) {
+    if !dir.is_dir() {
+        println!("Error: {} is not a directory.", dir.display());
+        return;
+    }
+
+    let Ok(entries) = fs::read_dir(dir) else {
+        println!("Error: Could not read directory.");
+        return;
+    };
+
+    // Need to initialize settings for the output directory and compression config to work
+    let _ = settings::initialize();
+    
+    let mut recorder = match Recorder::new() {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Error initializing recorder: {}", e);
+            return;
+        }
+    };
+    
+    // Hack to get FFmpeg path since post_process needs it
+    // Wait, wait, actually we can just find it
+    let ffmpeg = match std::env::var_os("PARKER_FFMPEG")
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            if let Ok(exe) = std::env::current_exe() {
+                if let Some(parent) = exe.parent() {
+                    let bundled = parent.join("ffmpeg.exe");
+                    if bundled.is_file() { return Some(bundled); }
+                }
+            }
+            let output = Command::new("where.exe").arg("ffmpeg.exe").output().ok()?;
+            if output.status.success() {
+                String::from_utf8_lossy(&output.stdout)
+                    .lines().next().map(|s| std::path::PathBuf::from(s.trim()))
+            } else { None }
+        }) {
+        Some(f) => f,
+        None => {
+            println!("Error: FFmpeg not found. Cannot post-process.");
+            return;
+        }
+    };
+
+    println!("Scanning {} for .capture.mkv files...", dir.display());
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && path.to_string_lossy().ends_with(".capture.mkv") {
+            let final_path = path.with_extension("").with_extension("mp4");
+            println!("Processing {}...", path.display());
+            match recorder::post_process(&ffmpeg, &path, &final_path, recorder.output_directory()) {
+                Ok(encoder) => println!("Success using {encoder}. Saved to {}.", final_path.display()),
+                Err(e) => println!("Failed: {e}"),
+            }
+        }
+    }
+    println!("Batch processing complete.");
 }

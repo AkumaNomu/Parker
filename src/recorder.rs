@@ -155,7 +155,11 @@ impl Recorder {
             .arg("warning")
             .arg("-y")
             .arg("-thread_queue_size")
-            .arg("64")
+            .arg("1024")
+            .arg("-probesize")
+            .arg("32M")
+            .arg("-analyzeduration")
+            .arg("0")
             .arg("-f")
             .arg("gdigrab")
             .arg("-framerate")
@@ -169,8 +173,25 @@ impl Recorder {
             .arg("-draw_mouse")
             .arg("0")
             .arg("-i")
-            .arg("desktop")
-            .arg("-an")
+            .arg("desktop");
+
+        if let Ok(audio_device) = std::env::var("PARKER_AUDIO_DEVICE") {
+            command
+                .arg("-f")
+                .arg("dshow")
+                .arg("-thread_queue_size")
+                .arg("1024")
+                .arg("-i")
+                .arg(format!("audio={}", audio_device.trim()))
+                .arg("-c:a")
+                .arg("aac")
+                .arg("-b:a")
+                .arg("192k");
+        } else {
+            command.arg("-an");
+        }
+
+        command
             .arg("-c:v")
             .arg("libx264")
             .arg("-preset")
@@ -301,7 +322,7 @@ fn wait_for_capture(child: &mut Child) -> Result<(), String> {
     Err("FFmpeg did not finalize the capture cleanly.".to_string())
 }
 
-fn post_process(
+pub fn post_process(
     ffmpeg: &Path,
     capture_path: &Path,
     final_path: &Path,
@@ -309,7 +330,18 @@ fn post_process(
 ) -> Result<String, String> {
     let log_path = output_directory.join("postprocess.log");
     let config = compression_config()?;
-    let candidates = encoder_candidates(ffmpeg)?;
+    let mut candidates = encoder_candidates(ffmpeg)?;
+    // If the user wants to force GPU encoding, filter out CPU-only encoders
+    if std::env::var("PARKER_USE_GPU").ok().map_or(false, |v| {
+        let lower = v.to_ascii_lowercase();
+        !matches!(lower.as_str(), "0" | "false" | "no" | "off")
+    }) {
+        candidates.retain(|e| matches!(e, EncoderKind::Nvenc | EncoderKind::Qsv | EncoderKind::Amf));
+        if candidates.is_empty() {
+            // Fallback to software encoder if no GPU encoders are available
+            candidates.push(EncoderKind::X264);
+        }
+    }
     let filter = scale_filter(config.max_width, config.max_height);
 
     for encoder in candidates {
@@ -335,8 +367,15 @@ fn post_process(
             .arg("-map")
             .arg("0:v:0")
             .arg("-map_metadata")
-            .arg("-1")
-            .arg("-an")
+            .arg("-1");
+
+        if std::env::var("PARKER_AUDIO_DEVICE").is_ok() {
+            command.arg("-map").arg("0:a?").arg("-c:a").arg("copy");
+        } else {
+            command.arg("-an");
+        }
+
+        command
             .arg("-sn")
             .arg("-dn")
             .arg("-vf")

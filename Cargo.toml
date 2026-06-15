@@ -13,6 +13,8 @@ publish = false
 [dependencies]
 image = { version = "0.25", default-features = false, features = ["bmp"] }
 rqrr = { version = "0.10.1", default-features = false, features = ["img"] }
+self_update = "0.6"
+inquire = "0.6"
 
 [profile.release]
 lto = true
