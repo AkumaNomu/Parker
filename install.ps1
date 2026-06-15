@@ -59,7 +59,7 @@ function Resolve-ParkerVersion {
         if ($match) { return $match.Matches[0].Groups[1].Value }
     }
 
-    return "0.4.0"
+    return "0.4.1"
 }
 
 function New-Shortcut(

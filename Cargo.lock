@@ -3,8 +3,6 @@
 version = 4
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "addr2line"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -29,15 +27,12 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "anyhow"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -53,15 +48,12 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "backtrace"
 version = "0.3.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -108,30 +100,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4388bee8683e3d04af747c73422af53102d2bd24d9eadb6cbc100baef4b43f8"
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "bytemuck"
 version = "1.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8efb64bd706a16a1bdde310ae86b351e4d21550d98d056f22f8a7f7a2183fec"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "byteorder-lite"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "bytes"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -163,7 +149,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "cc"
 version = "1.2.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -175,22 +160,17 @@ dependencies = [
 
 [[package]]
 name = "cfg-if"
-<<<<<<< HEAD
-=======
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
 name = "cfg-if"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "cloudabi"
 version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -367,7 +347,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "embed-resource"
 version = "3.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -375,12 +354,6 @@ checksum = "c31a88c8d26de40ed18fe748c547845aa39de1db3afd958f8cb91579f3644bcb"
 dependencies = [
  "cc",
  "memchr",
-<<<<<<< HEAD
- "rustc_version",
- "toml",
- "vswhom",
- "winreg",
-=======
  "rustc_version 0.4.1",
  "toml",
  "vswhom",
@@ -400,7 +373,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
 dependencies = [
  "cfg-if 1.0.4",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 ]
 
 [[package]]
@@ -410,8 +382,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "errno"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -460,15 +430,12 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "flate2"
 version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -491,15 +458,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "foldhash"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -562,7 +526,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "g2gen"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -571,11 +534,7 @@ dependencies = [
  "g2poly",
  "proc-macro2",
  "quote",
-<<<<<<< HEAD
- "syn",
-=======
  "syn 2.0.117",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 ]
 
 [[package]]
@@ -595,8 +554,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "312d2295c7302019c395cfb90dacd00a82a2eabd700429bba9c7a3f38dbbe11b"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "getrandom"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -649,7 +606,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -657,11 +613,7 @@ checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 dependencies = [
  "allocator-api2",
  "equivalent",
-<<<<<<< HEAD
- "foldhash",
-=======
  "foldhash 0.2.0",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 ]
 
 [[package]]
@@ -671,8 +623,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -905,7 +855,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "image"
 version = "0.25.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -919,8 +868,6 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-<<<<<<< HEAD
-=======
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
@@ -931,18 +878,12 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "2.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
-<<<<<<< HEAD
-]
-
-[[package]]
-=======
  "serde",
  "serde_core",
 ]
@@ -1026,15 +967,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "libc"
 version = "0.2.186"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1071,7 +1009,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "953f07c43838f8e6f9758cab68bf5bed85465e7587ebe0b823f1bcd81978ad3a"
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "lru"
 version = "0.16.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1081,8 +1018,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "matches"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1095,15 +1030,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "memchr"
 version = "2.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "memoffset"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1182,7 +1114,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "moxcms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1193,8 +1124,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "native-tls"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1232,15 +1161,11 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
-<<<<<<< HEAD
- "autocfg",
-=======
  "autocfg 1.5.1",
 ]
 
@@ -1319,19 +1244,11 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 ]
 
 [[package]]
 name = "parker"
-<<<<<<< HEAD
-version = "0.4.0"
-dependencies = [
- "embed-resource",
- "image",
- "rqrr",
-=======
-version = "0.3.0"
+version = "0.4.1"
 dependencies = [
  "embed-resource",
  "image",
@@ -1424,7 +1341,6 @@ checksum = "479ca8adacdd7ce8f1fb39ce9ecccbfe93a3f1344b3d0d97f20bc0196208f62b"
 dependencies = [
  "proc-macro2",
  "syn 2.0.117",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 ]
 
 [[package]]
@@ -1437,8 +1353,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "publicsuffix"
 version = "1.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1449,7 +1363,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "pxfm"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1465,8 +1378,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "r-efi"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1688,7 +1599,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "rqrr"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1700,8 +1610,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "rustc-demangle"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1717,15 +1625,11 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "rustc_version"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
-<<<<<<< HEAD
- "semver",
-=======
  "semver 1.0.28",
 ]
 
@@ -1811,7 +1715,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
  "semver-parser",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 ]
 
 [[package]]
@@ -1821,8 +1724,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1839,7 +1740,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "serde_core"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1856,9 +1756,6 @@ checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
-<<<<<<< HEAD
- "syn",
-=======
  "syn 2.0.117",
 ]
 
@@ -1873,7 +1770,6 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 ]
 
 [[package]]
@@ -1886,8 +1782,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "serde_urlencoded"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1900,15 +1794,12 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "signal-hook"
 version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1993,7 +1884,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "syn"
 version = "2.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2005,8 +1895,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "synstructure"
 version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2253,17 +2141,12 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "toml"
 version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81f3d15e84cbcd896376e6730314d59fb5a87f31e4b038454184435cd57defee"
 dependencies = [
-<<<<<<< HEAD
- "indexmap",
-=======
  "indexmap 2.14.0",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
  "serde_core",
  "serde_spanned",
  "toml_datetime",
@@ -2297,8 +2180,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "756daf9b1013ebe47a8776667b466417e2d4c5679d441c26230efd9ef78692db"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2326,15 +2207,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c1cb5db39152898a79168971543b1cb5020dff7fe43c8dc468b0885f5e29df5"
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "unicode-normalization"
 version = "0.1.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2412,7 +2290,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "vswhom"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2433,8 +2310,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "want"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2559,15 +2434,11 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 name = "windows-sys"
 version = "0.59.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
 dependencies = [
-<<<<<<< HEAD
- "windows-targets",
-=======
  "windows-targets 0.52.6",
 ]
 
@@ -2593,7 +2464,6 @@ dependencies = [
  "windows_x86_64_gnu 0.48.5",
  "windows_x86_64_gnullvm 0.48.5",
  "windows_x86_64_msvc 0.48.5",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 ]
 
 [[package]]
@@ -2602,16 +2472,6 @@ version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b724f72796e036ab90c1021d4780d4d3d648aca59e491e6b98e725b84e99973"
 dependencies = [
-<<<<<<< HEAD
- "windows_aarch64_gnullvm",
- "windows_aarch64_msvc",
- "windows_i686_gnu",
- "windows_i686_gnullvm",
- "windows_i686_msvc",
- "windows_x86_64_gnu",
- "windows_x86_64_gnullvm",
- "windows_x86_64_msvc",
-=======
  "windows_aarch64_gnullvm 0.52.6",
  "windows_aarch64_msvc 0.52.6",
  "windows_i686_gnu 0.52.6",
@@ -2620,50 +2480,40 @@ dependencies = [
  "windows_x86_64_gnu 0.52.6",
  "windows_x86_64_gnullvm 0.52.6",
  "windows_x86_64_msvc 0.52.6",
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 ]
 
 [[package]]
 name = "windows_aarch64_gnullvm"
-<<<<<<< HEAD
-=======
 version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b38e32f0abccf9987a4e3079dfb67dcd799fb61361e53e2882c3cbaf0d905d8"
 
 [[package]]
 name = "windows_aarch64_gnullvm"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a4622180e7a0ec044bb555404c800bc9fd9ec262ec147edd5989ccd0c02cd3"
 
 [[package]]
 name = "windows_aarch64_msvc"
-<<<<<<< HEAD
-=======
 version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc35310971f3b2dbbf3f0690a219f40e2d9afcf64f9ab7cc1be722937c26b4bc"
 
 [[package]]
 name = "windows_aarch64_msvc"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09ec2a7bb152e2252b53fa7803150007879548bc709c039df7627cabbd05d469"
 
 [[package]]
 name = "windows_i686_gnu"
-<<<<<<< HEAD
-=======
 version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a75915e7def60c94dcef72200b9a8e58e5091744960da64ec734a6c6e9b3743e"
 
 [[package]]
 name = "windows_i686_gnu"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e9b5ad5ab802e97eb8e295ac6720e509ee4c243f69d781394014ebfe8bbfa0b"
@@ -2676,60 +2526,48 @@ checksum = "0eee52d38c090b3caa76c563b86c3a4bd71ef1a819287c19d586d7334ae8ed66"
 
 [[package]]
 name = "windows_i686_msvc"
-<<<<<<< HEAD
-=======
 version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f55c233f70c4b27f66c523580f78f1004e8b5a8b659e05a4eb49d4166cca406"
 
 [[package]]
 name = "windows_i686_msvc"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "240948bc05c5e7c6dabba28bf89d89ffce3e303022809e73deaefe4f6ec56c66"
 
 [[package]]
 name = "windows_x86_64_gnu"
-<<<<<<< HEAD
-=======
 version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53d40abd2583d23e4718fddf1ebec84dbff8381c07cae67ff7768bbf19c6718e"
 
 [[package]]
 name = "windows_x86_64_gnu"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "147a5c80aabfbf0c7d901cb5895d1de30ef2907eb21fbbab29ca94c5b08b1a78"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
-<<<<<<< HEAD
-=======
 version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b7b52767868a23d5bab768e390dc5f5c55825b6d30b86c844ff2dc7414044cc"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24d5b23dc417412679681396f2b49f3de8c1473deb516bd34410872eff51ed0d"
 
 [[package]]
 name = "windows_x86_64_msvc"
-<<<<<<< HEAD
-=======
 version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed94fce61571a4006852b7389a063ab983c02eb1bb37b47f8272ce92d06d9538"
 
 [[package]]
 name = "windows_x86_64_msvc"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
@@ -2742,8 +2580,6 @@ checksum = "0592e1c9d151f854e6fd382574c3a0855250e1d9b2f99d9281c6e6391af352f1"
 
 [[package]]
 name = "winreg"
-<<<<<<< HEAD
-=======
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2986deb581c4fe11b621998a5e53361efe6b48a151178d0cd9eeffa4dc6acc9"
@@ -2753,16 +2589,10 @@ dependencies = [
 
 [[package]]
 name = "winreg"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
 version = "0.55.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb5a765337c50e9ec252c2069be9bf91c7df47afb103b642ba3a53bf8101be97"
 dependencies = [
-<<<<<<< HEAD
- "cfg-if",
- "windows-sys",
-]
-=======
  "cfg-if 1.0.4",
  "windows-sys 0.59.0",
 ]
@@ -2983,4 +2813,3 @@ name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)

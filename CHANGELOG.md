@@ -2,6 +2,18 @@
 
 All notable changes to Parker are documented here.
 
+## [0.4.1] - 2026-06-15
+
+### Added
+
+- Simple native dashboard for capture, recording, recordings, and settings.
+- Taskbar window identity with Parker's embedded application icon.
+
+### Changed
+
+- Double-clicking the notification-area icon now opens Parker's dashboard.
+- Tray icon loading now requests the embedded 16-pixel icon explicitly.
+
 ## [0.4.0] - 2026-06-15
 
 ### Added

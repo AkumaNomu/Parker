@@ -4,6 +4,8 @@
 compile_error!("Parker only supports Windows.");
 
 mod clipboard;
+mod config_ui;
+mod dashboard;
 mod ocr;
 mod qr;
 mod recorder;
@@ -13,9 +15,8 @@ mod selector;
 mod settings;
 mod toast;
 mod tray;
-mod win;
 mod updater;
-mod config_ui;
+mod win;
 
 use ocr::OcrKind;
 use recorder::{Recorder, RecordingResult};
@@ -102,7 +103,7 @@ fn main() {
     let mut last_recording_finished: Option<Instant> = None;
     let mut exit_after_finalization = false;
 
-    let app_window = match create_app_window() {
+    let app_window = match dashboard::create() {
         Ok(window) => window,
         Err(error) => {
             show_error(&error);
@@ -126,6 +127,7 @@ fn main() {
         show_error(&error);
         return;
     }
+    dashboard::show(app_window);
 
     let taskbar_created = unsafe {
         let name = wide_null("TaskbarCreated");
@@ -155,8 +157,10 @@ fn main() {
             let _ = tray::add(app_window);
             if finalization.is_some() {
                 tray::set_processing(app_window);
+                dashboard::set_processing(app_window);
             } else {
                 tray::set_recording(app_window, recorder.is_recording());
+                dashboard::set_recording(app_window, recorder.is_recording());
             }
             continue;
         }
@@ -166,6 +170,7 @@ fn main() {
                 complete_recording(receiver, app_window);
             }
             tray::set_recording(app_window, false);
+            dashboard::set_recording(app_window, false);
             last_recording_finished = Some(Instant::now());
             if exit_after_finalization {
                 break 'messages;
@@ -177,6 +182,7 @@ fn main() {
             if recording_indicator.is_some() && !recorder.is_recording() {
                 recording_indicator.take();
                 tray::set_recording(app_window, false);
+                dashboard::set_recording(app_window, false);
                 if let Some(error) = recorder.take_runtime_error() {
                     show_error(&error);
                 }
@@ -194,15 +200,29 @@ fn main() {
             }
         } else if message.message == recording_indicator::WM_RECORDING_INDICATOR_STOP {
             Some(AppAction::StopRecording)
+        } else if message.message == dashboard::WM_DASHBOARD_SMART_CAPTURE {
+            Some(AppAction::SmartCapture)
+        } else if message.message == dashboard::WM_DASHBOARD_TOGGLE_RECORDING {
+            Some(AppAction::ToggleRecording)
+        } else if message.message == dashboard::WM_DASHBOARD_OPEN_RECORDINGS {
+            Some(AppAction::OpenRecordings)
+        } else if message.message == dashboard::WM_DASHBOARD_OPEN_SETTINGS {
+            Some(AppAction::OpenSettings)
         } else if message.message == tray::WM_TRAY_CALLBACK {
             let recording = recorder.is_recording();
-            tray::handle_callback(
+            match tray::handle_callback(
                 app_window,
                 message.lParam,
                 recording,
                 finalization.is_some(),
-            )
-            .map(map_tray_action)
+            ) {
+                Some(TrayAction::OpenParker) => {
+                    dashboard::show(app_window);
+                    None
+                }
+                Some(action) => Some(map_tray_action(action)),
+                None => None,
+            }
         } else {
             None
         };
@@ -224,6 +244,7 @@ fn main() {
                         finalization = begin_finish_recording(&mut recorder, app_window);
                         if finalization.is_some() {
                             tray::set_processing(app_window);
+                            dashboard::set_processing(app_window);
                         }
                     } else if last_recording_finished
                         .is_some_and(|finished| finished.elapsed() < Duration::from_secs(1))
@@ -239,6 +260,7 @@ fn main() {
                                 )),
                             }
                             tray::set_recording(app_window, true);
+                            dashboard::set_recording(app_window, true);
                         }
                     }
                 }
@@ -248,6 +270,7 @@ fn main() {
                         finalization = begin_finish_recording(&mut recorder, app_window);
                         if finalization.is_some() {
                             tray::set_processing(app_window);
+                            dashboard::set_processing(app_window);
                         }
                     }
                 }
@@ -265,6 +288,7 @@ fn main() {
                         finalization = begin_finish_recording(&mut recorder, app_window);
                         if finalization.is_some() {
                             tray::set_processing(app_window);
+                            dashboard::set_processing(app_window);
                         }
                         exit_after_finalization = finalization.is_some();
                         if exit_after_finalization {
@@ -316,6 +340,7 @@ fn create_single_instance_guard() -> Result<HANDLE, String> {
 
 fn map_tray_action(action: TrayAction) -> AppAction {
     match action {
+        TrayAction::OpenParker => unreachable!("OpenParker is handled before action mapping"),
         TrayAction::SmartCapture => AppAction::SmartCapture,
         TrayAction::ToggleRecording => AppAction::ToggleRecording,
         TrayAction::OpenRecordings => AppAction::OpenRecordings,
@@ -462,62 +487,10 @@ fn qr_auto_open_enabled() -> bool {
         .unwrap_or(true)
 }
 
-fn create_app_window() -> Result<HWND, String> {
-    let class_name = wide_null("ParkerMainWindow");
-    let title = wide_null("Parker");
-    let instance = unsafe { GetModuleHandleW(std::ptr::null()) };
-    let class = WNDCLASSW {
-        style: 0,
-        lpfnWndProc: Some(app_window_proc),
-        cbClsExtra: 0,
-        cbWndExtra: 0,
-        hInstance: instance,
-        hIcon: unsafe { LoadIconW(instance, 101usize as *const u16) },
-        hCursor: unsafe { LoadCursorW(null_mut(), IDC_ARROW as *const u16) },
-        hbrBackground: null_mut(),
-        lpszMenuName: null_mut(),
-        lpszClassName: class_name.as_ptr(),
-    };
-
-    if unsafe { RegisterClassW(&class) } == 0 {
-        return Err("Could not register Parker's background window class.".to_string());
-    }
-
-    let window = unsafe {
-        CreateWindowExW(
-            WS_EX_TOOLWINDOW,
-            class_name.as_ptr(),
-            title.as_ptr(),
-            WS_POPUP,
-            0,
-            0,
-            1,
-            1,
-            null_mut(),
-            null_mut(),
-            instance,
-            null_mut(),
-        )
-    };
-
-    if window.is_null() {
-        Err("Could not create Parker's background window.".to_string())
-    } else {
-        Ok(window)
-    }
-}
-
-unsafe extern "system" fn app_window_proc(
-    window: HWND,
-    message: UINT,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> LRESULT {
-    DefWindowProcW(window, message, wparam, lparam)
-}
-
 fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, String) {
-    let s = std::env::var(env_var).unwrap_or_default().to_ascii_uppercase();
+    let s = std::env::var(env_var)
+        .unwrap_or_default()
+        .to_ascii_uppercase();
     let key = match s.as_str() {
         "F1" => 0x70,
         "F2" => 0x71,
@@ -541,7 +514,7 @@ fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, 
         }
         _ => default_key,
     };
-    
+
     let name = if key == default_key {
         default_name.to_string()
     } else {
@@ -549,13 +522,12 @@ fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, 
     };
     (key, name)
 }
-
 fn register_hotkeys(window: HWND) -> Result<(), String> {
-    let modifiers = (MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT) as u32;
-    let (ocr_key, ocr_name) = parse_hotkey("PARKER_HOTKEY_OCR", VK_F8 as u32, "Ctrl+Shift+F8");
-    let (rec_key, rec_name) = parse_hotkey("PARKER_HOTKEY_RECORD", VK_F9 as u32, "Ctrl+Shift+F9");
-    let (fol_key, fol_name) = parse_hotkey("PARKER_HOTKEY_FOLDER", VK_F10 as u32, "Ctrl+Shift+F10");
-    let (quit_key, quit_name) = parse_hotkey("PARKER_HOTKEY_QUIT", VK_F12 as u32, "Ctrl+Shift+F12");
+    let modifiers = MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT;
+    let (ocr_key, ocr_name) = parse_hotkey("PARKER_HOTKEY_OCR", VK_F8, "Ctrl+Shift+F8");
+    let (rec_key, rec_name) = parse_hotkey("PARKER_HOTKEY_RECORD", VK_F9, "Ctrl+Shift+F9");
+    let (fol_key, fol_name) = parse_hotkey("PARKER_HOTKEY_FOLDER", VK_F10, "Ctrl+Shift+F10");
+    let (quit_key, quit_name) = parse_hotkey("PARKER_HOTKEY_QUIT", VK_F12, "Ctrl+Shift+F12");
 
     let bindings: [(i32, u32, String); 4] = [
         (HOTKEY_OCR, ocr_key, ocr_name),
@@ -713,15 +685,15 @@ fn batch_process(dir: &Path) {
 
     // Need to initialize settings for the output directory and compression config to work
     let _ = settings::initialize();
-    
-    let mut recorder = match Recorder::new() {
+
+    let recorder = match Recorder::new() {
         Ok(r) => r,
         Err(e) => {
             println!("Error initializing recorder: {}", e);
             return;
         }
     };
-    
+
     // Hack to get FFmpeg path since post_process needs it
     // Wait, wait, actually we can just find it
     let ffmpeg = match std::env::var_os("PARKER_FFMPEG")
@@ -730,14 +702,20 @@ fn batch_process(dir: &Path) {
             if let Ok(exe) = std::env::current_exe() {
                 if let Some(parent) = exe.parent() {
                     let bundled = parent.join("ffmpeg.exe");
-                    if bundled.is_file() { return Some(bundled); }
+                    if bundled.is_file() {
+                        return Some(bundled);
+                    }
                 }
             }
             let output = Command::new("where.exe").arg("ffmpeg.exe").output().ok()?;
             if output.status.success() {
                 String::from_utf8_lossy(&output.stdout)
-                    .lines().next().map(|s| std::path::PathBuf::from(s.trim()))
-            } else { None }
+                    .lines()
+                    .next()
+                    .map(|s| std::path::PathBuf::from(s.trim()))
+            } else {
+                None
+            }
         }) {
         Some(f) => f,
         None => {
@@ -753,7 +731,10 @@ fn batch_process(dir: &Path) {
             let final_path = path.with_extension("").with_extension("mp4");
             println!("Processing {}...", path.display());
             match recorder::post_process(&ffmpeg, &path, &final_path, recorder.output_directory()) {
-                Ok(encoder) => println!("Success using {encoder}. Saved to {}.", final_path.display()),
+                Ok(encoder) => println!(
+                    "Success using {encoder}. Saved to {}.",
+                    final_path.display()
+                ),
                 Err(e) => println!("Failed: {e}"),
             }
         }

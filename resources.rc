@@ -5,8 +5,8 @@
 1 RT_MANIFEST "app.manifest"
 
 1 VERSIONINFO
-FILEVERSION 0,4,0,0
-PRODUCTVERSION 0,4,0,0
+FILEVERSION 0,4,1,0
+PRODUCTVERSION 0,4,1,0
 FILEFLAGSMASK 0x3fL
 FILEOS VOS_NT_WINDOWS32
 FILETYPE VFT_APP
@@ -18,12 +18,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Akuma Nomu\0"
             VALUE "FileDescription", "Parker capture utility\0"
-            VALUE "FileVersion", "0.4.0\0"
+            VALUE "FileVersion", "0.4.1\0"
             VALUE "InternalName", "parker\0"
             VALUE "LegalCopyright", "Copyright (c) 2026 Akuma Nomu\0"
             VALUE "OriginalFilename", "parker.exe\0"
             VALUE "ProductName", "Parker\0"
-            VALUE "ProductVersion", "0.4.0\0"
+            VALUE "ProductVersion", "0.4.1\0"
         END
     END
     BLOCK "VarFileInfo"

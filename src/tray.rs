@@ -10,9 +10,11 @@ const CMD_RECORD: UINT = 1002;
 const CMD_OPEN_RECORDINGS: UINT = 1003;
 const CMD_OPEN_SETTINGS: UINT = 1004;
 const CMD_EXIT: UINT = 1005;
+const CMD_OPEN_PARKER: UINT = 1006;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrayAction {
+    OpenParker,
     SmartCapture,
     ToggleRecording,
     OpenRecordings,
@@ -78,7 +80,7 @@ pub fn handle_callback(
 ) -> Option<TrayAction> {
     let notification = (lparam as usize & 0xffff) as UINT;
     match notification {
-        WM_LBUTTONDBLCLK => Some(TrayAction::OpenRecordings),
+        WM_LBUTTONDBLCLK => Some(TrayAction::OpenParker),
         WM_RBUTTONUP | WM_CONTEXTMENU => show_menu(window, recording, processing),
         _ => None,
     }
@@ -91,6 +93,8 @@ fn show_menu(window: HWND, recording: bool, processing: bool) -> Option<TrayActi
             return None;
         }
 
+        append(menu, CMD_OPEN_PARKER, "Open Parker");
+        AppendMenuW(menu, MF_SEPARATOR, 0, null_mut());
         append(menu, CMD_SMART_CAPTURE, "Smart capture\tCtrl+Shift+F8");
         if processing {
             append_with_flags(
@@ -132,6 +136,7 @@ fn show_menu(window: HWND, recording: bool, processing: bool) -> Option<TrayActi
         PostMessageW(window, WM_NULL, 0, 0);
 
         match command {
+            CMD_OPEN_PARKER => Some(TrayAction::OpenParker),
             CMD_SMART_CAPTURE => Some(TrayAction::SmartCapture),
             CMD_RECORD => Some(TrayAction::ToggleRecording),
             CMD_OPEN_RECORDINGS => Some(TrayAction::OpenRecordings),
@@ -163,7 +168,14 @@ fn base_data(window: HWND) -> NOTIFYICONDATAW {
 fn load_app_icon() -> HICON {
     unsafe {
         let instance = GetModuleHandleW(null_mut());
-        LoadIconW(instance, 101usize as *const u16)
+        LoadImageW(
+            instance,
+            101usize as *const u16,
+            IMAGE_ICON,
+            16,
+            16,
+            LR_DEFAULTCOLOR,
+        ) as HICON
     }
 }
 

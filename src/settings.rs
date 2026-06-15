@@ -112,7 +112,7 @@ fn expand_variables(value: &str) -> String {
     output
 }
 
-fn data_directory() -> PathBuf {
+pub(crate) fn data_directory() -> PathBuf {
     env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(env::temp_dir)

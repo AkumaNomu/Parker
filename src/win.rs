@@ -164,6 +164,8 @@ pub const CS_HREDRAW: UINT = 0x0002;
 
 pub const WM_DESTROY: UINT = 0x0002;
 pub const WM_CLOSE: UINT = 0x0010;
+pub const WM_SETFONT: UINT = 0x0030;
+pub const WM_SETICON: UINT = 0x0080;
 pub const WM_PAINT: UINT = 0x000F;
 pub const WM_KEYDOWN: UINT = 0x0100;
 pub const WM_TIMER: UINT = 0x0113;
@@ -184,12 +186,22 @@ pub const MOD_SHIFT: UINT = 0x0004;
 pub const MOD_NOREPEAT: UINT = 0x4000;
 
 pub const WS_POPUP: DWORD = 0x8000_0000;
+pub const WS_OVERLAPPED: DWORD = 0x0000_0000;
+pub const WS_CAPTION: DWORD = 0x00C0_0000;
+pub const WS_SYSMENU: DWORD = 0x0008_0000;
+pub const WS_MINIMIZEBOX: DWORD = 0x0002_0000;
+pub const WS_CHILD: DWORD = 0x4000_0000;
+pub const WS_VISIBLE: DWORD = 0x1000_0000;
+pub const WS_TABSTOP: DWORD = 0x0001_0000;
+pub const BS_PUSHBUTTON: DWORD = 0x0000_0000;
+pub const SS_LEFT: DWORD = 0x0000_0000;
 pub const WS_EX_TOPMOST: DWORD = 0x0000_0008;
 pub const WS_EX_TOOLWINDOW: DWORD = 0x0000_0080;
 pub const WS_EX_LAYERED: DWORD = 0x0008_0000;
 pub const WS_EX_NOACTIVATE: DWORD = 0x0800_0000;
 
 pub const SW_SHOWNOACTIVATE: INT = 4;
+pub const SW_HIDE: INT = 0;
 pub const SW_SHOW: INT = 5;
 pub const SW_SHOWNORMAL: INT = 1;
 pub const LWA_ALPHA: DWORD = 0x0000_0002;
@@ -207,6 +219,8 @@ pub const IDC_ARROW: usize = 32512;
 pub const IDC_CROSS: usize = 32515;
 pub const BLACK_BRUSH: INT = 4;
 pub const NULL_BRUSH: INT = 5;
+pub const WHITE_BRUSH: INT = 0;
+pub const DEFAULT_GUI_FONT: INT = 17;
 pub const PS_SOLID: INT = 0;
 pub const TRANSPARENT: INT = 1;
 pub const FW_NORMAL: INT = 400;
@@ -237,6 +251,10 @@ pub const SRCCOPY: DWORD = 0x00CC_0020;
 pub const CAPTUREBLT: DWORD = 0x4000_0000;
 
 pub const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+pub const IMAGE_ICON: UINT = 1;
+pub const LR_DEFAULTCOLOR: UINT = 0;
+pub const ICON_SMALL: WPARAM = 0;
+pub const ICON_BIG: WPARAM = 1;
 pub const SPI_GETWORKAREA: UINT = 0x0030;
 pub const WDA_EXCLUDEFROMCAPTURE: DWORD = 0x0000_0011;
 
@@ -273,6 +291,9 @@ extern "system" {
     pub fn ShowWindow(hWnd: HWND, cmdShow: INT) -> BOOL;
     pub fn UpdateWindow(hWnd: HWND) -> BOOL;
     pub fn SetForegroundWindow(hWnd: HWND) -> BOOL;
+    pub fn SetWindowTextW(hWnd: HWND, text: *const u16) -> BOOL;
+    pub fn GetDlgItem(hWnd: HWND, id: INT) -> HWND;
+    pub fn SendMessageW(hWnd: HWND, message: UINT, wParam: WPARAM, lParam: LPARAM) -> LRESULT;
     pub fn SetFocus(hWnd: HWND) -> HWND;
     pub fn SetLayeredWindowAttributes(
         hWnd: HWND,
@@ -288,6 +309,14 @@ extern "system" {
         flags: UINT,
     ) -> BOOL;
     pub fn LoadCursorW(instance: HINSTANCE, cursorName: *const u16) -> HCURSOR;
+    pub fn LoadImageW(
+        instance: HINSTANCE,
+        name: *const u16,
+        kind: UINT,
+        width: INT,
+        height: INT,
+        load: UINT,
+    ) -> HANDLE;
     pub fn BeginPaint(hWnd: HWND, paint: *mut PAINTSTRUCT) -> HDC;
     pub fn EndPaint(hWnd: HWND, paint: *const PAINTSTRUCT) -> BOOL;
     pub fn GetClientRect(hWnd: HWND, rect: *mut RECT) -> BOOL;

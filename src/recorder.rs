@@ -332,11 +332,12 @@ pub fn post_process(
     let config = compression_config()?;
     let mut candidates = encoder_candidates(ffmpeg)?;
     // If the user wants to force GPU encoding, filter out CPU-only encoders
-    if std::env::var("PARKER_USE_GPU").ok().map_or(false, |v| {
+    if std::env::var("PARKER_USE_GPU").ok().is_some_and(|v| {
         let lower = v.to_ascii_lowercase();
         !matches!(lower.as_str(), "0" | "false" | "no" | "off")
     }) {
-        candidates.retain(|e| matches!(e, EncoderKind::Nvenc | EncoderKind::Qsv | EncoderKind::Amf));
+        candidates
+            .retain(|e| matches!(e, EncoderKind::Nvenc | EncoderKind::Qsv | EncoderKind::Amf));
         if candidates.is_empty() {
             // Fallback to software encoder if no GPU encoders are available
             candidates.push(EncoderKind::X264);
@@ -375,11 +376,7 @@ pub fn post_process(
             command.arg("-an");
         }
 
-        command
-            .arg("-sn")
-            .arg("-dn")
-            .arg("-vf")
-            .arg(&filter);
+        command.arg("-sn").arg("-dn").arg("-vf").arg(&filter);
 
         append_encoder_arguments(&mut command, encoder, &config);
 
