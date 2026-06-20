@@ -19,6 +19,7 @@ Copy-Item (Join-Path $PSScriptRoot "LICENSE") $dist -Force
 Copy-Item (Join-Path $PSScriptRoot "install.ps1") $dist -Force
 Copy-Item (Join-Path $PSScriptRoot "uninstall.ps1") $dist -Force
 Copy-Item (Join-Path $PSScriptRoot "setup.cmd") $dist -Force
+Copy-Item (Join-Path $PSScriptRoot "setup-gui.ps1") $dist -Force
 Copy-Item (Join-Path $PSScriptRoot "settings.env.example") $dist -Force
 
 Write-Host "Built: $dist\parker.exe"

@@ -8,11 +8,13 @@ All notable changes to Parker are documented here.
 
 - Simple native dashboard for capture, recording, recordings, and settings.
 - Taskbar window identity with Parker's embedded application icon.
+- GUI setup wrapper for release installers with startup, dependency, and launch options.
 
 ### Changed
 
 - Double-clicking the notification-area icon now opens Parker's dashboard.
 - Tray icon loading now requests the embedded 16-pixel icon explicitly.
+- Release setup falls back to the command-line installer if the GUI cannot start.
 
 ## [0.4.0] - 2026-06-15
 

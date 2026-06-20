@@ -1,9 +1,14 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
+powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup-gui.ps1"
 if errorlevel 1 (
   echo.
-  echo Parker setup failed. Review the message above.
-  pause
+  echo Parker setup GUI failed. Falling back to command-line setup.
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
+  if errorlevel 1 (
+    echo.
+    echo Parker setup failed. Review the message above.
+    pause
+  )
 )

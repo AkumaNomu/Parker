@@ -77,8 +77,9 @@ Press `Esc` or right-click to cancel a selector.
 ## Install a GitHub release
 
 Download `parker-setup-<version>-windows-x64.exe` from the latest GitHub Release
-and open it. The release also includes a portable `parker-<version>-windows-x64.exe`
-and a ZIP for manual installation.
+and open it. The setup flow opens a small GUI where you can choose startup,
+dependency, and launch options. The release also includes a portable
+`parker-<version>-windows-x64.exe` and a ZIP for manual installation.
 
 The per-user installer does not require administrator access. It:
 
@@ -212,6 +213,7 @@ scripts/                     Validation and release packaging
 .github/workflows/           Windows CI and releases
 docs/                        Architecture, setup, development, and roadmap
 setup.cmd                    Double-click setup entry point
+setup-gui.ps1                GUI wrapper for release setup
 install.ps1                  Source/release-aware per-user installer
 ```
 

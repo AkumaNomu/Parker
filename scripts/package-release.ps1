@@ -25,6 +25,7 @@ Copy-Item "LICENSE" $staging
 Copy-Item "install.ps1" $staging
 Copy-Item "uninstall.ps1" $staging
 Copy-Item "setup.cmd" $staging
+Copy-Item "setup-gui.ps1" $staging
 Copy-Item "settings.env.example" $staging
 $version | Set-Content -Path (Join-Path $staging "version.txt") -Encoding ASCII
 
@@ -70,6 +71,7 @@ SourceFiles0=$sourcePath
 %FILE5%=
 %FILE6%=
 %FILE7%=
+%FILE8%=
 
 [Strings]
 FILE0="parker.exe"
@@ -80,6 +82,7 @@ FILE4="uninstall.ps1"
 FILE5="setup.cmd"
 FILE6="settings.env.example"
 FILE7="version.txt"
+FILE8="setup-gui.ps1"
 "@
 $sedContent | Set-Content -Path $sed -Encoding ASCII
 $sedArgument = Resolve-Path -Relative $sed

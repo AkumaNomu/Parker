@@ -3,8 +3,10 @@
 ## Release installation
 
 Download and open `parker-setup-<version>-windows-x64.exe` from GitHub Releases.
-It extracts the release payload and invokes `install.ps1` with a temporary
-PowerShell execution-policy bypass. The ZIP remains available for manual setup.
+It extracts the release payload and opens the Parker setup GUI. The GUI lets you
+choose startup, dependency installation, and launch options, then invokes
+`install.ps1` with a temporary PowerShell execution-policy bypass. The ZIP
+remains available for manual setup.
 
 The installer is per-user and supports a prebuilt release or a source checkout.
 It finds `parker.exe` beside the script, under `dist`, or builds it with Cargo.
