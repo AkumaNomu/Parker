@@ -33,7 +33,7 @@ jobs:
         run: cargo build --locked --release
 
       - name: Upload executable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: parker-windows-x64
           path: target/release/parker.exe
