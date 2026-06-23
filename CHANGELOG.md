@@ -2,6 +2,24 @@
 
 All notable changes to Parker are documented here.
 
+## [0.4.3] - 2026-06-23
+
+### Added
+
+- More guided Windows setup experience with install destination, progress state,
+  option grouping, audio guidance, and install-folder access after success.
+- Runtime dashboard copy that surfaces version, audio support, and core
+  shortcuts in one place.
+
+### Changed
+
+- Release metadata, installer fallback version, and publishing docs now target
+  `0.4.3`.
+- Audio recording support is documented as an opt-in `PARKER_AUDIO_DEVICE`
+  path instead of hidden behavior.
+- Config, batch, self-update, hotkey override, and GPU preference controls are
+  surfaced in the README/settings docs.
+
 ## [0.4.1] - 2026-06-15
 
 ### Added

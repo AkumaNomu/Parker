@@ -36,7 +36,7 @@ Parker then automatically:
 - detects NVIDIA NVENC, Intel Quick Sync, and AMD AMF encoders once per run;
 - attempts supported hardware encoding before falling back to x264;
 - compresses and optionally downscales oversized captures;
-- strips metadata, audio, subtitle, and data streams;
+- strips metadata, subtitle, and data streams, while preserving opt-in audio;
 - normalizes dimensions and emits broadly compatible H.264 `yuv420p` video;
 - writes MP4 fast-start metadata for immediate playback;
 - removes the intermediate file after successful conversion;
@@ -106,6 +106,14 @@ Useful installer options:
 .\install.ps1 -NoLaunch
 ```
 
+Useful runtime commands:
+
+```powershell
+.\parker.exe config          # terminal settings helper for compression
+.\parker.exe batch <folder>  # finalize any .capture.mkv files in a folder
+.\parker.exe --self-update   # check GitHub Releases for a newer Parker
+```
+
 ## Build and install from source
 
 Install Rust, reopen PowerShell, then run the installer:
@@ -149,10 +157,16 @@ Parker next starts. Process-level environment variables take precedence.
 | `PARKER_RECORD_FPS` | `30` | Capture rate, `1`–`120`. |
 | `PARKER_COMPRESSION` | `balanced` | `compact`, `balanced`, or `quality`. |
 | `PARKER_VIDEO_ENCODER` | `auto` | `auto`, `nvenc`, `qsv`, `amf`, or `libx264`. |
+| `PARKER_AUDIO_DEVICE` | unset | Optional FFmpeg DirectShow audio device name. |
+| `PARKER_USE_GPU` | unset | Set to `1` to prefer GPU encoders only, with x264 fallback. |
 | `PARKER_MAX_WIDTH` | Profile-defined | Optional maximum final width; `0` disables size limiting. |
 | `PARKER_MAX_HEIGHT` | Profile-defined | Optional maximum final height; `0` disables size limiting. |
 | `PARKER_POST_CRF` | Profile-defined | Optional x264/NVENC quality override, `0`–`51`. |
 | `PARKER_POST_PRESET` | Profile-defined | Optional x264 speed/compression override. |
+| `PARKER_HOTKEY_OCR` | `F8` | Override smart-capture key; Parker still uses `Ctrl+Shift`. |
+| `PARKER_HOTKEY_RECORD` | `F9` | Override recording key; Parker still uses `Ctrl+Shift`. |
+| `PARKER_HOTKEY_FOLDER` | `F10` | Override recordings-folder key; Parker still uses `Ctrl+Shift`. |
+| `PARKER_HOTKEY_QUIT` | `F12` | Override exit key; Parker still uses `Ctrl+Shift`. |
 
 Compression profiles:
 
@@ -219,7 +233,7 @@ install.ps1                  Source/release-aware per-user installer
 
 ## Known limitations
 
-- Recording currently has no microphone or system audio.
+- Audio is opt-in and depends on a valid FFmpeg DirectShow device name.
 - OCR quality depends on source resolution, contrast, language data, and font.
 - Dense borderless tables may not be classified correctly.
 - Protected video and hardware overlays may appear blank.

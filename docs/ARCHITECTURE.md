@@ -1,14 +1,17 @@
 # Architecture
 
-Parker is a single-process, event-driven Windows background application. A
-hidden owner window receives global hotkeys and notification-area callbacks and
-owns clipboard writes. Temporary selector and toast windows use small Win32
-message loops and are excluded from capture where supported.
+Parker is a single-process, event-driven Windows application. A visible
+dashboard window receives global hotkeys and notification-area callbacks and
+owns clipboard writes. Temporary selector, recording indicator, and toast
+windows use small Win32 message loops and are excluded from capture where
+supported.
 
 ## Modules
 
 - `main.rs`: lifecycle, single-instance guard, hotkeys, tray dispatch, smart
   routing, and workflow coordination.
+- `dashboard.rs`: native dashboard window, app icon identity, workflow buttons,
+  and status copy.
 - `settings.rs`: first-run data-directory initialization, persistent
   `settings.env` creation, environment overrides, and settings opening.
 - `tray.rs`: notification-area icon, context menu, tooltip state, and Explorer
@@ -22,6 +25,8 @@ message loops and are excluded from capture where supported.
 - `recorder.rs`: cursor-free FFmpeg region capture, graceful stop, hardware
   encoder detection/fallback, compression profiles, MP4 post-processing,
   validation, and cleanup.
+- `config_ui.rs`: terminal helper for compression settings.
+- `updater.rs`: GitHub Release self-update check.
 - `toast.rs`: non-activating Win32 toast-style windows excluded from capture.
 - `clipboard.rs`: `CF_HDROP` file-copy and `CF_UNICODETEXT` text-copy behavior.
 - `win.rs`: narrow Win32 FFI surface used by Parker.
@@ -34,7 +39,7 @@ message loops and are excluded from capture where supported.
 4. Missing `settings.env` is written atomically with safe defaults.
 5. Settings are loaded unless a process environment variable already overrides
    the same key.
-6. The hidden app window, global hotkeys, and notification-area icon are
+6. The dashboard window, global hotkeys, and notification-area icon are
    registered.
 7. `TaskbarCreated` is monitored so the icon can be restored after Explorer
    restarts.
@@ -63,12 +68,19 @@ message loops and are excluded from capture where supported.
    NVENC, Quick Sync, and AMF paths before x264.
 5. The selected compression profile controls quality, x264 preset, and default
    output bounds. User overrides are applied from `settings.env`.
-6. The post-process strips non-video streams and metadata, constrains oversized
-   captures, normalizes even dimensions, emits H.264 `yuv420p`, marks the codec
-   as `avc1`, and enables MP4 fast-start.
+6. The post-process strips metadata and non-selected streams, preserves opt-in
+   audio when `PARKER_AUDIO_DEVICE` is set, constrains oversized captures,
+   normalizes even dimensions, emits H.264 `yuv420p`, marks the codec as
+   `avc1`, and enables MP4 fast-start.
 7. Failed hardware attempts are removed before the next encoder is tried.
 8. Parker verifies the final MP4, removes the intermediate file, and places the
    final path on the clipboard as `CF_HDROP`.
+
+## Utility commands
+
+- `parker.exe config` opens the compression settings helper.
+- `parker.exe batch <folder>` finalizes preserved `.capture.mkv` files.
+- `parker.exe --self-update` checks GitHub Releases for a newer Parker binary.
 
 ## Performance decisions
 

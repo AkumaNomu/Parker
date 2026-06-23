@@ -35,8 +35,8 @@ pub fn create() -> Result<HWND, String> {
         return Err("Could not register Parker's window class.".to_string());
     }
 
-    let width = 480;
-    let height = 330;
+    let width = 560;
+    let height = 390;
     let x = (unsafe { GetSystemMetrics(SM_CXSCREEN) } - width) / 2;
     let y = (unsafe { GetSystemMetrics(SM_CYSCREEN) } - height) / 2;
     let window = unsafe {
@@ -110,37 +110,58 @@ pub fn set_status(window: HWND, status: &str) {
 }
 
 fn create_controls(window: HWND) -> Result<(), String> {
-    create_control(window, "STATIC", "Parker", 28, 22, 420, 34, 0, SS_LEFT)?;
     create_control(
         window,
         "STATIC",
-        "Capture text and QR codes, or record any screen region.",
+        concat!("Parker ", env!("CARGO_PKG_VERSION")),
+        28,
+        22,
+        490,
+        34,
+        0,
+        SS_LEFT,
+    )?;
+    create_control(
+        window,
+        "STATIC",
+        "Fast local capture for QR/OCR, tables, code, video, and optional FFmpeg audio.",
         28,
         58,
-        420,
+        492,
         36,
         0,
         SS_LEFT,
     )?;
     create_control(
         window,
-        "BUTTON",
-        "Smart capture",
+        "STATIC",
+        "Choose a workflow",
         28,
-        112,
-        198,
-        48,
+        98,
+        492,
+        24,
+        0,
+        SS_LEFT,
+    )?;
+    create_control(
+        window,
+        "BUTTON",
+        "Smart capture\nCtrl+Shift+F8",
+        28,
+        130,
+        236,
+        58,
         CMD_SMART_CAPTURE,
         BS_PUSHBUTTON | WS_TABSTOP,
     )?;
     create_control(
         window,
         "BUTTON",
-        "Record region",
-        246,
-        112,
-        198,
-        48,
+        "Record region\nCtrl+Shift+F9",
+        292,
+        130,
+        236,
+        58,
         CMD_RECORD,
         BS_PUSHBUTTON | WS_TABSTOP,
     )?;
@@ -149,9 +170,9 @@ fn create_controls(window: HWND) -> Result<(), String> {
         "BUTTON",
         "Open recordings",
         28,
-        176,
-        198,
-        42,
+        208,
+        236,
+        46,
         CMD_OPEN_RECORDINGS,
         BS_PUSHBUTTON | WS_TABSTOP,
     )?;
@@ -159,22 +180,33 @@ fn create_controls(window: HWND) -> Result<(), String> {
         window,
         "BUTTON",
         "Settings",
-        246,
-        176,
-        198,
-        42,
+        292,
+        208,
+        236,
+        46,
         CMD_SETTINGS,
         BS_PUSHBUTTON | WS_TABSTOP,
     )?;
     create_control(
         window,
         "STATIC",
-        "Ready. Choose an action or use a keyboard shortcut.",
+        "Ready. Use the buttons, tray menu, or global shortcuts.",
         28,
-        246,
-        416,
+        278,
+        500,
         30,
         STATUS_LABEL as usize,
+        SS_LEFT,
+    )?;
+    create_control(
+        window,
+        "STATIC",
+        "Shortcuts: F8 smart capture | F9 record/stop | F10 recordings | F12 exit. Audio: set PARKER_AUDIO_DEVICE in settings.",
+        28,
+        314,
+        500,
+        36,
+        0,
         SS_LEFT,
     )?;
     Ok(())

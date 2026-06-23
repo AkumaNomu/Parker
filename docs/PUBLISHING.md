@@ -28,6 +28,6 @@ After the first push, CI builds Parker on a Windows runner. Push a tag matching
 `Cargo.toml` to create setup EXE, portable EXE, ZIP, and SHA-256 assets:
 
 ```powershell
-git tag v0.4.1
-git push origin v0.4.1
+git tag v0.4.3
+git push origin v0.4.3
 ```

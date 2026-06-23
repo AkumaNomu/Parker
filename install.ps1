@@ -59,7 +59,7 @@ function Resolve-ParkerVersion {
         if ($match) { return $match.Matches[0].Groups[1].Value }
     }
 
-    return "0.4.1"
+    return "0.4.3"
 }
 
 function New-Shortcut(
@@ -108,12 +108,19 @@ PARKER_KEEP_OCR_CAPTURE=0
 PARKER_RECORD_FPS=30
 PARKER_COMPRESSION=balanced
 PARKER_VIDEO_ENCODER=auto
+# Optional FFmpeg DirectShow audio device, for example:
+# PARKER_AUDIO_DEVICE=Microphone Array (Realtek(R) Audio)
 # PARKER_MAX_WIDTH=1920
 # PARKER_MAX_HEIGHT=1080
 
 # Advanced overrides
 # PARKER_POST_CRF=24
 # PARKER_POST_PRESET=medium
+# PARKER_USE_GPU=1
+# PARKER_HOTKEY_OCR=F8
+# PARKER_HOTKEY_RECORD=F9
+# PARKER_HOTKEY_FOLDER=F10
+# PARKER_HOTKEY_QUIT=F12
 '@ | Set-Content -Path $settingsPath -Encoding UTF8
 }
 

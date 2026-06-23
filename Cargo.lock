@@ -1248,7 +1248,7 @@ dependencies = [
 
 [[package]]
 name = "parker"
-version = "0.4.1"
+version = "0.4.3"
 dependencies = [
  "embed-resource",
  "image",
