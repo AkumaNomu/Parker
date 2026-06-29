@@ -20,8 +20,13 @@ PARKER_KEEP_OCR_CAPTURE=0
 PARKER_RECORD_FPS=30
 PARKER_COMPRESSION=balanced
 PARKER_VIDEO_ENCODER=auto
+# PARKER_RING_SECONDS=45
 # PARKER_MAX_WIDTH=1920
 # PARKER_MAX_HEIGHT=1080
+
+# Hotkeys
+# PARKER_HOTKEY_CLIP=F7
+# PARKER_HOTKEY_SCROLL=F11
 
 # Advanced video overrides (uncomment to override the compression profile)
 # PARKER_POST_CRF=24
@@ -112,7 +117,7 @@ fn expand_variables(value: &str) -> String {
     output
 }
 
-fn data_directory() -> PathBuf {
+pub fn data_directory() -> PathBuf {
     env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(env::temp_dir)

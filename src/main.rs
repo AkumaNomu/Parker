@@ -4,24 +4,28 @@
 compile_error!("Parker only supports Windows.");
 
 mod clipboard;
+mod config_ui;
+mod input_capture;
 mod ocr;
 mod qr;
 mod recorder;
 mod recording_indicator;
 mod screenshot;
+mod scroll_capture;
 mod selector;
 mod settings;
+mod signals;
 mod toast;
 mod tray;
-mod win;
 mod updater;
-mod config_ui;
+mod win;
 
 use ocr::OcrKind;
 use recorder::{Recorder, RecordingResult};
 use recording_indicator::RecordingIndicator;
+use scroll_capture::{ScrollCapture, ScrollCaptureResult};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::ptr::null_mut;
 use std::sync::mpsc::Receiver;
@@ -34,14 +38,19 @@ const HOTKEY_OCR: i32 = 1;
 const HOTKEY_RECORD: i32 = 2;
 const HOTKEY_FOLDER: i32 = 3;
 const HOTKEY_QUIT: i32 = 4;
+const HOTKEY_CLIP: i32 = 5;
+const HOTKEY_SCROLL: i32 = 6;
 const APP_TIMER_ID: usize = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum AppAction {
     SmartCapture,
     ToggleRecording,
+    ToggleClipRecording,
+    ToggleScrollCapture,
     StopRecording,
     OpenRecordings,
+    CopyLastPath,
     OpenSettings,
     Exit,
 }
@@ -97,9 +106,18 @@ fn main() {
             return;
         }
     };
+    let mut scroll_capture = match ScrollCapture::new(recorder.output_directory().to_path_buf()) {
+        Ok(value) => value,
+        Err(error) => {
+            show_error(&error);
+            return;
+        }
+    };
     let mut recording_indicator: Option<RecordingIndicator> = None;
     let mut finalization: Option<Receiver<Result<RecordingResult, String>>> = None;
+    let mut scroll_finalization: Option<Receiver<Result<ScrollCaptureResult, String>>> = None;
     let mut last_recording_finished: Option<Instant> = None;
+    let mut last_saved_path: Option<PathBuf> = None;
     let mut exit_after_finalization = false;
 
     let app_window = match create_app_window() {
@@ -141,7 +159,7 @@ fn main() {
             initialization.data_directory.display()
         ));
     } else {
-        signal_ready();
+        signals::ready();
     }
 
     let mut message = MSG::default();
@@ -155,17 +173,21 @@ fn main() {
             let _ = tray::add(app_window);
             if finalization.is_some() {
                 tray::set_processing(app_window);
+            } else if scroll_finalization.is_some() {
+                tray::set_scroll_processing(app_window);
+            } else if scroll_capture.is_capturing() {
+                tray::set_scroll_capture(app_window, true);
             } else {
-                tray::set_recording(app_window, recorder.is_recording());
+                tray::set_recording(app_window, recorder.is_recording(), false);
             }
             continue;
         }
 
         if message.message == recorder::WM_RECORDING_FINALIZED {
             if let Some(receiver) = finalization.take() {
-                complete_recording(receiver, app_window);
+                last_saved_path = complete_recording(receiver, app_window);
             }
-            tray::set_recording(app_window, false);
+            tray::set_recording(app_window, false, false);
             last_recording_finished = Some(Instant::now());
             if exit_after_finalization {
                 break 'messages;
@@ -173,10 +195,18 @@ fn main() {
             continue;
         }
 
+        if message.message == scroll_capture::WM_SCROLL_CAPTURE_FINALIZED {
+            if let Some(receiver) = scroll_finalization.take() {
+                last_saved_path = complete_scroll_capture(receiver, app_window);
+            }
+            tray::set_scroll_capture(app_window, false);
+            continue;
+        }
+
         if message.message == WM_TIMER && message.wParam == APP_TIMER_ID {
             if recording_indicator.is_some() && !recorder.is_recording() {
                 recording_indicator.take();
-                tray::set_recording(app_window, false);
+                tray::set_recording(app_window, false, false);
                 if let Some(error) = recorder.take_runtime_error() {
                     show_error(&error);
                 }
@@ -188,6 +218,8 @@ fn main() {
             match message.wParam as i32 {
                 HOTKEY_OCR => Some(AppAction::SmartCapture),
                 HOTKEY_RECORD => Some(AppAction::ToggleRecording),
+                HOTKEY_CLIP => Some(AppAction::ToggleClipRecording),
+                HOTKEY_SCROLL => Some(AppAction::ToggleScrollCapture),
                 HOTKEY_FOLDER => Some(AppAction::OpenRecordings),
                 HOTKEY_QUIT => Some(AppAction::Exit),
                 _ => None,
@@ -200,7 +232,10 @@ fn main() {
                 app_window,
                 message.lParam,
                 recording,
+                scroll_capture.is_capturing(),
                 finalization.is_some(),
+                scroll_finalization.is_some(),
+                last_saved_path.is_some(),
             )
             .map(map_tray_action)
         } else {
@@ -210,14 +245,21 @@ fn main() {
         if let Some(action) = action {
             match action {
                 AppAction::SmartCapture => {
-                    if recorder.is_recording() || finalization.is_some() {
-                        toast::show("Wait for the active recording to finish processing.");
+                    if recorder.is_recording()
+                        || finalization.is_some()
+                        || scroll_capture.is_capturing()
+                        || scroll_finalization.is_some()
+                    {
+                        toast::show("Wait for the active capture to finish processing.");
                     } else {
                         run_smart_capture(app_window);
                     }
                 }
                 AppAction::ToggleRecording => {
-                    if finalization.is_some() {
+                    if finalization.is_some()
+                        || scroll_finalization.is_some()
+                        || scroll_capture.is_capturing()
+                    {
                         toast::show("Parker is still optimizing the previous recording.");
                     } else if recorder.is_recording() {
                         recording_indicator.take();
@@ -238,7 +280,54 @@ fn main() {
                                     "Recording active without on-screen control: {error} Use Ctrl+Shift+F9 to stop."
                                 )),
                             }
-                            tray::set_recording(app_window, true);
+                            tray::set_recording(app_window, true, false);
+                        }
+                    }
+                }
+                AppAction::ToggleClipRecording => {
+                    if finalization.is_some()
+                        || scroll_finalization.is_some()
+                        || scroll_capture.is_capturing()
+                    {
+                        toast::show("Parker is still optimizing the previous capture.");
+                    } else if recorder.is_recording() {
+                        recording_indicator.take();
+                        finalization = begin_finish_recording(&mut recorder, app_window);
+                        if finalization.is_some() {
+                            tray::set_processing(app_window);
+                        }
+                    } else if last_recording_finished
+                        .is_some_and(|finished| finished.elapsed() < Duration::from_secs(1))
+                    {
+                        // Ignore a hotkey queued while FFmpeg was finishing.
+                    } else {
+                        recording_indicator.take();
+                        if let Some(selected) = start_clip_recording(&mut recorder) {
+                            match RecordingIndicator::show(app_window, selected) {
+                                Ok(indicator) => recording_indicator = Some(indicator),
+                                Err(error) => toast::show(format!(
+                                    "Clip recording active without on-screen control: {error} Use Ctrl+Shift+F7 to stop."
+                                )),
+                            }
+                            tray::set_recording(app_window, true, true);
+                        }
+                    }
+                }
+                AppAction::ToggleScrollCapture => {
+                    if finalization.is_some() || scroll_finalization.is_some() {
+                        toast::show("Parker is still optimizing the previous capture.");
+                    } else if recorder.is_recording() {
+                        toast::show("Stop recording before starting scroll capture.");
+                    } else if scroll_capture.is_capturing() {
+                        scroll_finalization =
+                            begin_finish_scroll_capture(&mut scroll_capture, app_window);
+                        if scroll_finalization.is_some() {
+                            tray::set_scroll_processing(app_window);
+                        }
+                    } else {
+                        match start_scroll_capture(&mut scroll_capture) {
+                            Ok(()) => tray::set_scroll_capture(app_window, true),
+                            Err(error) => show_error(&error),
                         }
                     }
                 }
@@ -249,11 +338,33 @@ fn main() {
                         if finalization.is_some() {
                             tray::set_processing(app_window);
                         }
+                    } else if scroll_capture.is_capturing() && scroll_finalization.is_none() {
+                        scroll_finalization =
+                            begin_finish_scroll_capture(&mut scroll_capture, app_window);
+                        if scroll_finalization.is_some() {
+                            tray::set_scroll_processing(app_window);
+                        }
                     }
                 }
                 AppAction::OpenRecordings => {
                     open_folder(recorder.output_directory());
                     toast::show("Opened Parker recordings.");
+                }
+                AppAction::CopyLastPath => {
+                    if let Some(path) = last_saved_path.as_deref() {
+                        match clipboard::copy_text(&path.display().to_string(), app_window) {
+                            Ok(()) => {
+                                toast::show(format!("Copied last file path: {}", path.display()));
+                                signals::success();
+                            }
+                            Err(error) => show_error(&format!(
+                                "The last saved file is {}, but its path could not be copied: {error}",
+                                path.display()
+                            )),
+                        }
+                    } else {
+                        toast::show("No saved capture yet.");
+                    }
                 }
                 AppAction::OpenSettings => match settings::open(&initialization.settings_path) {
                     Ok(()) => toast::show("Opened Parker settings. Restart Parker after editing."),
@@ -272,9 +383,24 @@ fn main() {
                         } else {
                             break 'messages;
                         }
+                    } else if scroll_capture.is_capturing() {
+                        scroll_finalization =
+                            begin_finish_scroll_capture(&mut scroll_capture, app_window);
+                        if scroll_finalization.is_some() {
+                            tray::set_scroll_processing(app_window);
+                        }
+                        exit_after_finalization = scroll_finalization.is_some();
+                        if exit_after_finalization {
+                            toast::show("Parker will exit after the scroll capture is saved.");
+                        } else {
+                            break 'messages;
+                        }
                     } else if finalization.is_some() {
                         exit_after_finalization = true;
                         toast::show("Parker will exit after the recording is saved.");
+                    } else if scroll_finalization.is_some() {
+                        exit_after_finalization = true;
+                        toast::show("Parker will exit after the scroll capture is saved.");
                     } else {
                         break 'messages;
                     }
@@ -318,20 +444,23 @@ fn map_tray_action(action: TrayAction) -> AppAction {
     match action {
         TrayAction::SmartCapture => AppAction::SmartCapture,
         TrayAction::ToggleRecording => AppAction::ToggleRecording,
+        TrayAction::ToggleClipRecording => AppAction::ToggleClipRecording,
+        TrayAction::ToggleScrollCapture => AppAction::ToggleScrollCapture,
         TrayAction::OpenRecordings => AppAction::OpenRecordings,
+        TrayAction::CopyLastPath => AppAction::CopyLastPath,
         TrayAction::OpenSettings => AppAction::OpenSettings,
         TrayAction::Exit => AppAction::Exit,
     }
 }
 
 fn run_smart_capture(clipboard_owner: HWND) {
-    signal_selection_started("Select a region for QR detection or smart OCR.");
+    signals::selection_started();
     let selected = match selector::select_region(
         "Select a QR code, table, code block, or text. Esc/right-click cancels.",
     ) {
         Ok(Some(rect)) => rect,
         Ok(None) => {
-            signal_cancelled();
+            signals::cancelled();
             return;
         }
         Err(error) => {
@@ -371,7 +500,7 @@ fn process_smart_capture(path: &Path, clipboard_owner: HWND) -> Result<(), Strin
         if let Some(url) = qr::first_web_url(&payloads).filter(|_| qr_auto_open_enabled()) {
             qr::open_web_url(url)?;
             if payloads.len() == 1 {
-                signal_qr_opened();
+                signals::qr_opened();
             } else {
                 toast::show(format!(
                     "Opened the first QR link and copied {} decoded values.",
@@ -392,21 +521,21 @@ fn process_smart_capture(path: &Path, clipboard_owner: HWND) -> Result<(), Strin
     let recognized = ocr::recognize_smart(path)?;
     clipboard::copy_text(&recognized.text, clipboard_owner)?;
     match recognized.kind {
-        OcrKind::Text => signal_text_copied(),
-        OcrKind::Code => signal_code_copied(),
-        OcrKind::Table => signal_table_copied(),
+        OcrKind::Text => signals::text_copied(),
+        OcrKind::Code => signals::code_copied(),
+        OcrKind::Table => signals::table_copied(),
     }
     Ok(())
 }
 
 fn start_region_recording(recorder: &mut Recorder) -> Option<selector::ScreenRect> {
-    signal_selection_started("Select the region to record.");
+    signals::selection_started();
     let selected = match selector::select_region(
         "Drag over the region to record. The mouse cursor will never appear in the video.",
     ) {
         Ok(Some(rect)) => rect,
         Ok(None) => {
-            signal_cancelled();
+            signals::cancelled();
             return None;
         }
         Err(error) => {
@@ -418,7 +547,7 @@ fn start_region_recording(recorder: &mut Recorder) -> Option<selector::ScreenRec
     thread::sleep(Duration::from_millis(100));
     match recorder.start(selected) {
         Ok(_) => {
-            signal_recording_started();
+            signals::recording_started();
             Some(selected)
         }
         Err(error) => {
@@ -426,6 +555,60 @@ fn start_region_recording(recorder: &mut Recorder) -> Option<selector::ScreenRec
             None
         }
     }
+}
+
+fn start_clip_recording(recorder: &mut Recorder) -> Option<selector::ScreenRect> {
+    signals::selection_started();
+    let selected = match selector::select_region(
+        "Drag over the clip region. Parker keeps the last 30-60 seconds.",
+    ) {
+        Ok(Some(rect)) => rect,
+        Ok(None) => {
+            signals::cancelled();
+            return None;
+        }
+        Err(error) => {
+            show_error(&error);
+            return None;
+        }
+    };
+
+    thread::sleep(Duration::from_millis(100));
+    let clip_seconds = std::env::var("PARKER_RING_SECONDS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value >= 5)
+        .unwrap_or(45);
+
+    match recorder.start_clip(selected, clip_seconds) {
+        Ok(_) => {
+            signals::clip_recording_started(clip_seconds);
+            Some(selected)
+        }
+        Err(error) => {
+            show_error(&error);
+            None
+        }
+    }
+}
+
+fn start_scroll_capture(scroll_capture: &mut ScrollCapture) -> Result<(), String> {
+    signals::selection_started();
+    let selected = match selector::select_region(
+        "Drag over the scrolling region. Scroll the page, then press Ctrl+Shift+F11 again.",
+    ) {
+        Ok(Some(rect)) => rect,
+        Ok(None) => {
+            signals::cancelled();
+            return Ok(());
+        }
+        Err(error) => return Err(error),
+    };
+
+    thread::sleep(Duration::from_millis(100));
+    scroll_capture.start(selected)?;
+    signals::scroll_capture_started();
+    Ok(())
 }
 
 fn begin_finish_recording(
@@ -442,18 +625,68 @@ fn begin_finish_recording(
     }
 }
 
-fn complete_recording(receiver: Receiver<Result<RecordingResult, String>>, clipboard_owner: HWND) {
+fn begin_finish_scroll_capture(
+    scroll_capture: &mut ScrollCapture,
+    app_window: HWND,
+) -> Option<Receiver<Result<ScrollCaptureResult, String>>> {
+    toast::show("Stopping and stitching the scroll capture…");
+    match scroll_capture.stop_in_background(app_window) {
+        Ok(receiver) => Some(receiver),
+        Err(error) => {
+            show_error(&error);
+            None
+        }
+    }
+}
+
+fn complete_recording(
+    receiver: Receiver<Result<RecordingResult, String>>,
+    clipboard_owner: HWND,
+) -> Option<PathBuf> {
     match receiver.recv() {
-        Ok(Ok(result)) => match clipboard::copy_file(&result.path, clipboard_owner) {
-            Ok(()) => signal_file_copied(&result),
-            Err(error) => show_error(&format!(
-                "The recording was saved to {}, but it could not be copied as a file: {error}",
-                result.path.display()
-            )),
-        },
+        Ok(Ok(result)) => {
+            let saved_path = result.path.clone();
+            match clipboard::copy_file(&result.path, clipboard_owner) {
+                Ok(()) => {
+                    signals::file_copied(&result);
+                    return Some(saved_path);
+                }
+                Err(error) => show_error(&format!(
+                    "The recording was saved to {}, but it could not be copied as a file: {error}",
+                    result.path.display()
+                )),
+            }
+            return Some(saved_path);
+        }
         Ok(Err(error)) => show_error(&error),
         Err(_) => show_error("The recording finalizer ended without returning a result."),
     }
+    None
+}
+
+fn complete_scroll_capture(
+    receiver: Receiver<Result<ScrollCaptureResult, String>>,
+    clipboard_owner: HWND,
+) -> Option<PathBuf> {
+    match receiver.recv() {
+        Ok(Ok(result)) => {
+            let saved_path = result.path.clone();
+            match clipboard::copy_file(&result.path, clipboard_owner) {
+                Ok(()) => {
+                    signals::scroll_capture_saved(&result);
+                    return Some(saved_path);
+                }
+                Err(error) => show_error(&format!(
+                "The scroll capture was saved to {}, but it could not be copied as a file: {error}",
+                result.path.display()
+            )),
+            }
+            return Some(saved_path);
+        }
+        Ok(Err(error)) => show_error(&error),
+        Err(_) => show_error("The scroll capture finalizer ended without returning a result."),
+    }
+    None
 }
 
 fn qr_auto_open_enabled() -> bool {
@@ -517,7 +750,9 @@ unsafe extern "system" fn app_window_proc(
 }
 
 fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, String) {
-    let s = std::env::var(env_var).unwrap_or_default().to_ascii_uppercase();
+    let s = std::env::var(env_var)
+        .unwrap_or_default()
+        .to_ascii_uppercase();
     let key = match s.as_str() {
         "F1" => 0x70,
         "F2" => 0x71,
@@ -532,7 +767,9 @@ fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, 
         "F11" => 0x7A,
         "F12" => VK_F12,
         s if s.len() == 1 => {
-            let c = s.chars().next().unwrap();
+            let Some(c) = s.chars().next() else {
+                return (default_key, default_name.to_string());
+            };
             if c.is_ascii_alphanumeric() {
                 c as UINT
             } else {
@@ -541,7 +778,7 @@ fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, 
         }
         _ => default_key,
     };
-    
+
     let name = if key == default_key {
         default_name.to_string()
     } else {
@@ -551,15 +788,19 @@ fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, 
 }
 
 fn register_hotkeys(window: HWND) -> Result<(), String> {
-    let modifiers = (MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT) as u32;
-    let (ocr_key, ocr_name) = parse_hotkey("PARKER_HOTKEY_OCR", VK_F8 as u32, "Ctrl+Shift+F8");
-    let (rec_key, rec_name) = parse_hotkey("PARKER_HOTKEY_RECORD", VK_F9 as u32, "Ctrl+Shift+F9");
-    let (fol_key, fol_name) = parse_hotkey("PARKER_HOTKEY_FOLDER", VK_F10 as u32, "Ctrl+Shift+F10");
-    let (quit_key, quit_name) = parse_hotkey("PARKER_HOTKEY_QUIT", VK_F12 as u32, "Ctrl+Shift+F12");
+    let modifiers = MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT;
+    let (ocr_key, ocr_name) = parse_hotkey("PARKER_HOTKEY_OCR", VK_F8, "Ctrl+Shift+F8");
+    let (rec_key, rec_name) = parse_hotkey("PARKER_HOTKEY_RECORD", VK_F9, "Ctrl+Shift+F9");
+    let (clip_key, clip_name) = parse_hotkey("PARKER_HOTKEY_CLIP", 0x76, "Ctrl+Shift+F7");
+    let (scroll_key, scroll_name) = parse_hotkey("PARKER_HOTKEY_SCROLL", 0x7A, "Ctrl+Shift+F11");
+    let (fol_key, fol_name) = parse_hotkey("PARKER_HOTKEY_FOLDER", VK_F10, "Ctrl+Shift+F10");
+    let (quit_key, quit_name) = parse_hotkey("PARKER_HOTKEY_QUIT", VK_F12, "Ctrl+Shift+F12");
 
-    let bindings: [(i32, u32, String); 4] = [
+    let bindings: [(i32, u32, String); 6] = [
         (HOTKEY_OCR, ocr_key, ocr_name),
         (HOTKEY_RECORD, rec_key, rec_name),
+        (HOTKEY_CLIP, clip_key, clip_name),
+        (HOTKEY_SCROLL, scroll_key, scroll_name),
         (HOTKEY_FOLDER, fol_key, fol_name),
         (HOTKEY_QUIT, quit_key, quit_name),
     ];
@@ -577,7 +818,14 @@ fn register_hotkeys(window: HWND) -> Result<(), String> {
 }
 
 fn unregister_hotkeys(window: HWND) {
-    for id in [HOTKEY_OCR, HOTKEY_RECORD, HOTKEY_FOLDER, HOTKEY_QUIT] {
+    for id in [
+        HOTKEY_OCR,
+        HOTKEY_RECORD,
+        HOTKEY_CLIP,
+        HOTKEY_SCROLL,
+        HOTKEY_FOLDER,
+        HOTKEY_QUIT,
+    ] {
         unsafe {
             UnregisterHotKey(window, id);
         }
@@ -589,7 +837,7 @@ fn open_folder(path: &Path) {
 }
 
 fn show_error(message: &str) {
-    signal_error();
+    signals::error();
     toast::show(format!("Parker error: {message}"));
     let text = wide_null(message);
     let caption = wide_null("Parker");
@@ -600,103 +848,6 @@ fn show_error(message: &str) {
             caption.as_ptr(),
             MB_OK | MB_ICONERROR | MB_TOPMOST,
         );
-    }
-}
-
-fn signal_ready() {
-    toast::show("Parker is ready. Ctrl+Shift+F8 captures; Ctrl+Shift+F9 records a region.");
-    unsafe {
-        Beep(740, 70);
-        Beep(990, 90);
-    }
-}
-
-fn signal_selection_started(_message: &str) {
-    unsafe {
-        Beep(660, 65);
-    }
-}
-
-fn signal_recording_started() {
-    toast::show(
-        "Recording started. Drag the timer anywhere; click its stop button or press Ctrl+Shift+F9 to finish.",
-    );
-    unsafe {
-        Beep(880, 80);
-        Beep(1175, 100);
-    }
-}
-
-fn signal_file_copied(result: &RecordingResult) {
-    let reduction = if result.source_bytes > result.final_bytes && result.source_bytes > 0 {
-        format!(
-            ", {}% smaller",
-            100 - (result.final_bytes.saturating_mul(100) / result.source_bytes)
-        )
-    } else {
-        String::new()
-    };
-    toast::show(format!(
-        "Recording optimized with {} ({}{}) and copied as an MP4 file.",
-        result.encoder,
-        format_bytes(result.final_bytes),
-        reduction
-    ));
-    unsafe {
-        Beep(1175, 75);
-        Beep(1568, 130);
-    }
-}
-
-fn format_bytes(bytes: u64) -> String {
-    const MB: f64 = 1024.0 * 1024.0;
-    if bytes >= 1024 * 1024 {
-        format!("{:.1} MB", bytes as f64 / MB)
-    } else if bytes >= 1024 {
-        format!("{:.0} KB", bytes as f64 / 1024.0)
-    } else {
-        format!("{bytes} B")
-    }
-}
-
-fn signal_text_copied() {
-    toast::show("Text recognized and copied.");
-    signal_success();
-}
-
-fn signal_code_copied() {
-    toast::show("Code detected and copied with its line structure preserved.");
-    signal_success();
-}
-
-fn signal_table_copied() {
-    toast::show("Table detected and copied as tab-separated values.");
-    signal_success();
-}
-
-fn signal_qr_opened() {
-    toast::show("QR link opened and copied to the clipboard.");
-    signal_success();
-}
-
-fn signal_success() {
-    unsafe {
-        Beep(1047, 70);
-        Beep(1319, 70);
-        Beep(1568, 110);
-    }
-}
-
-fn signal_cancelled() {
-    toast::show("Capture cancelled.");
-    unsafe {
-        Beep(440, 80);
-    }
-}
-
-fn signal_error() {
-    unsafe {
-        Beep(260, 220);
     }
 }
 
@@ -713,15 +864,15 @@ fn batch_process(dir: &Path) {
 
     // Need to initialize settings for the output directory and compression config to work
     let _ = settings::initialize();
-    
-    let mut recorder = match Recorder::new() {
+
+    let recorder = match Recorder::new() {
         Ok(r) => r,
         Err(e) => {
             println!("Error initializing recorder: {}", e);
             return;
         }
     };
-    
+
     // Hack to get FFmpeg path since post_process needs it
     // Wait, wait, actually we can just find it
     let ffmpeg = match std::env::var_os("PARKER_FFMPEG")
@@ -730,14 +881,20 @@ fn batch_process(dir: &Path) {
             if let Ok(exe) = std::env::current_exe() {
                 if let Some(parent) = exe.parent() {
                     let bundled = parent.join("ffmpeg.exe");
-                    if bundled.is_file() { return Some(bundled); }
+                    if bundled.is_file() {
+                        return Some(bundled);
+                    }
                 }
             }
             let output = Command::new("where.exe").arg("ffmpeg.exe").output().ok()?;
             if output.status.success() {
                 String::from_utf8_lossy(&output.stdout)
-                    .lines().next().map(|s| std::path::PathBuf::from(s.trim()))
-            } else { None }
+                    .lines()
+                    .next()
+                    .map(|s| std::path::PathBuf::from(s.trim()))
+            } else {
+                None
+            }
         }) {
         Some(f) => f,
         None => {
@@ -753,7 +910,10 @@ fn batch_process(dir: &Path) {
             let final_path = path.with_extension("").with_extension("mp4");
             println!("Processing {}...", path.display());
             match recorder::post_process(&ffmpeg, &path, &final_path, recorder.output_directory()) {
-                Ok(encoder) => println!("Success using {encoder}. Saved to {}.", final_path.display()),
+                Ok(encoder) => println!(
+                    "Success using {encoder}. Saved to {}.",
+                    final_path.display()
+                ),
                 Err(e) => println!("Failed: {e}"),
             }
         }

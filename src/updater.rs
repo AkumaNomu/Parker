@@ -1,27 +1,31 @@
-use self_update::{cargo::CargoUpdate, UpdateStatus};
+use self_update::backends::github::{GitHubUpdateStatus, Update};
 use std::env;
 
 /// Checks GitHub releases for a newer version and updates the binary.
-/// Returns Ok(()) if up‑to‑date or after a successful update.
+/// Returns Ok(()) if up-to-date or after a successful update.
 /// Errors are returned and can be shown to the user.
 pub fn check_self_update() -> Result<(), String> {
-    // Locate the running executable.
-    let target = env::current_exe()
-        .map_err(|e| format!("Could not locate current executable: {e}"))?;
+    let target =
+        env::current_exe().map_err(|e| format!("Could not locate current executable: {e}"))?;
 
-    // Configure the updater to look at the repo "AkumaNomu/Parker".
-    let status = CargoUpdate::configure()
+    let mut builder = Update::configure();
+    builder
         .repo_owner("AkumaNomu")
         .repo_name("Parker")
         .bin_name("parker")
         .target("x86_64-pc-windows-msvc")
+        .bin_install_path(&target)
         .show_download_progress(true)
-        .current_exe(target)
-        .run()
-        .map_err(|e| format!("Self‑update failed: {e}"))?;
+        .current_version(env!("CARGO_PKG_VERSION"));
+
+    let status = builder
+        .build()
+        .map_err(|e| format!("Self-update configuration failed: {e}"))?
+        .update_extended()
+        .map_err(|e| format!("Self-update failed: {e}"))?;
 
     match status {
-        UpdateStatus::UpToDate => Ok(()),
-        UpdateStatus::Updated => Ok(()),
+        GitHubUpdateStatus::UpToDate => Ok(()),
+        GitHubUpdateStatus::Updated(_) => Ok(()),
     }
 }

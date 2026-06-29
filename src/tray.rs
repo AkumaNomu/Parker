@@ -7,15 +7,21 @@ const TRAY_ICON_ID: UINT = 1;
 
 const CMD_SMART_CAPTURE: UINT = 1001;
 const CMD_RECORD: UINT = 1002;
-const CMD_OPEN_RECORDINGS: UINT = 1003;
-const CMD_OPEN_SETTINGS: UINT = 1004;
-const CMD_EXIT: UINT = 1005;
+const CMD_CLIP: UINT = 1003;
+const CMD_SCROLL: UINT = 1004;
+const CMD_OPEN_RECORDINGS: UINT = 1005;
+const CMD_COPY_LAST_PATH: UINT = 1006;
+const CMD_OPEN_SETTINGS: UINT = 1007;
+const CMD_EXIT: UINT = 1008;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrayAction {
     SmartCapture,
     ToggleRecording,
+    ToggleClipRecording,
+    ToggleScrollCapture,
     OpenRecordings,
+    CopyLastPath,
     OpenSettings,
     Exit,
 }
@@ -45,11 +51,15 @@ pub fn remove(window: HWND) {
     }
 }
 
-pub fn set_recording(window: HWND, recording: bool) {
+pub fn set_recording(window: HWND, recording: bool, clip: bool) {
     set_status(
         window,
         if recording {
-            "Parker — recording region (Ctrl+Shift+F9 to stop)"
+            if clip {
+                "Parker — clip recording (Ctrl+Shift+F7/F9 to stop)"
+            } else {
+                "Parker — recording region (Ctrl+Shift+F7/F9 to stop)"
+            }
         } else {
             "Parker — ready"
         },
@@ -58,6 +68,21 @@ pub fn set_recording(window: HWND, recording: bool) {
 
 pub fn set_processing(window: HWND) {
     set_status(window, "Parker — optimizing recording");
+}
+
+pub fn set_scroll_capture(window: HWND, capturing: bool) {
+    set_status(
+        window,
+        if capturing {
+            "Parker — scroll capture (Ctrl+Shift+F11 to stop)"
+        } else {
+            "Parker — ready"
+        },
+    );
+}
+
+pub fn set_scroll_processing(window: HWND) {
+    set_status(window, "Parker — stitching scroll capture");
 }
 
 fn set_status(window: HWND, tooltip: &str) {
@@ -74,44 +99,89 @@ pub fn handle_callback(
     window: HWND,
     lparam: LPARAM,
     recording: bool,
+    scroll_capture: bool,
     processing: bool,
+    scroll_processing: bool,
+    has_last_path: bool,
 ) -> Option<TrayAction> {
     let notification = (lparam as usize & 0xffff) as UINT;
     match notification {
         WM_LBUTTONDBLCLK => Some(TrayAction::OpenRecordings),
-        WM_RBUTTONUP | WM_CONTEXTMENU => show_menu(window, recording, processing),
+        WM_RBUTTONUP | WM_CONTEXTMENU => show_menu(
+            window,
+            recording,
+            scroll_capture,
+            processing,
+            scroll_processing,
+            has_last_path,
+        ),
         _ => None,
     }
 }
 
-fn show_menu(window: HWND, recording: bool, processing: bool) -> Option<TrayAction> {
+fn show_menu(
+    window: HWND,
+    recording: bool,
+    scroll_capture: bool,
+    processing: bool,
+    scroll_processing: bool,
+    has_last_path: bool,
+) -> Option<TrayAction> {
     unsafe {
         let menu = CreatePopupMenu();
         if menu.is_null() {
             return None;
         }
 
+        let record_busy = processing || scroll_processing || scroll_capture;
+        let scroll_busy = processing || scroll_processing || recording;
+
         append(menu, CMD_SMART_CAPTURE, "Smart capture\tCtrl+Shift+F8");
-        if processing {
+        if record_busy {
             append_with_flags(
                 menu,
                 CMD_RECORD,
                 "Optimizing recording…",
                 MF_STRING | MF_GRAYED,
             );
+            append_with_flags(menu, CMD_CLIP, "Optimizing clip…", MF_STRING | MF_GRAYED);
+        } else if recording {
+            append(menu, CMD_RECORD, "Stop recording\tCtrl+Shift+F9");
+            append(menu, CMD_CLIP, "Stop clip recording\tCtrl+Shift+F7");
+        } else {
+            append(menu, CMD_RECORD, "Record a region\tCtrl+Shift+F9");
+            append(menu, CMD_CLIP, "Record 30-60s clip\tCtrl+Shift+F7");
+        }
+        if scroll_busy {
+            append_with_flags(
+                menu,
+                CMD_SCROLL,
+                "Stitching scroll capture…",
+                MF_STRING | MF_GRAYED,
+            );
         } else {
             append(
                 menu,
-                CMD_RECORD,
-                if recording {
-                    "Stop and optimize recording\tCtrl+Shift+F9"
+                CMD_SCROLL,
+                if scroll_capture {
+                    "Stop scroll capture\tCtrl+Shift+F11"
                 } else {
-                    "Record a region\tCtrl+Shift+F9"
+                    "Scroll capture\tCtrl+Shift+F11"
                 },
             );
         }
         AppendMenuW(menu, MF_SEPARATOR, 0, null_mut());
         append(menu, CMD_OPEN_RECORDINGS, "Open recordings\tCtrl+Shift+F10");
+        if has_last_path {
+            append(menu, CMD_COPY_LAST_PATH, "Copy last file path");
+        } else {
+            append_with_flags(
+                menu,
+                CMD_COPY_LAST_PATH,
+                "Copy last file path",
+                MF_STRING | MF_GRAYED,
+            );
+        }
         append(menu, CMD_OPEN_SETTINGS, "Settings");
         AppendMenuW(menu, MF_SEPARATOR, 0, null_mut());
         append(menu, CMD_EXIT, "Exit Parker\tCtrl+Shift+F12");
@@ -134,7 +204,10 @@ fn show_menu(window: HWND, recording: bool, processing: bool) -> Option<TrayActi
         match command {
             CMD_SMART_CAPTURE => Some(TrayAction::SmartCapture),
             CMD_RECORD => Some(TrayAction::ToggleRecording),
+            CMD_CLIP => Some(TrayAction::ToggleClipRecording),
+            CMD_SCROLL => Some(TrayAction::ToggleScrollCapture),
             CMD_OPEN_RECORDINGS => Some(TrayAction::OpenRecordings),
+            CMD_COPY_LAST_PATH => Some(TrayAction::CopyLastPath),
             CMD_OPEN_SETTINGS => Some(TrayAction::OpenSettings),
             CMD_EXIT => Some(TrayAction::Exit),
             _ => None,

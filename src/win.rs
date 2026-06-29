@@ -15,6 +15,7 @@ pub type DWORD = u32;
 pub type UINT = u32;
 pub type LONG = i32;
 pub type INT = i32;
+pub type SHORT = i16;
 pub type WPARAM = usize;
 pub type LPARAM = isize;
 pub type LRESULT = isize;
@@ -70,6 +71,7 @@ impl Default for MSG {
 }
 
 pub type WNDPROC = Option<unsafe extern "system" fn(HWND, UINT, WPARAM, LPARAM) -> LRESULT>;
+pub type HOOKPROC = Option<unsafe extern "system" fn(INT, WPARAM, LPARAM) -> LRESULT>;
 
 #[repr(C)]
 pub struct WNDCLASSW {
@@ -172,6 +174,9 @@ pub const WM_MOUSEMOVE: UINT = 0x0200;
 pub const WM_LBUTTONDOWN: UINT = 0x0201;
 pub const WM_LBUTTONUP: UINT = 0x0202;
 pub const WM_RBUTTONDOWN: UINT = 0x0204;
+pub const WH_KEYBOARD_LL: INT = 13;
+pub const WH_MOUSE_LL: INT = 14;
+pub const WM_QUIT: UINT = 0x0012;
 
 pub const VK_ESCAPE: WPARAM = 0x1B;
 pub const VK_F8: UINT = 0x77;
@@ -294,6 +299,7 @@ extern "system" {
     pub fn FillRect(hdc: HDC, rect: *const RECT, brush: HBRUSH) -> INT;
     pub fn InvalidateRect(hWnd: HWND, rect: *const RECT, erase: BOOL) -> BOOL;
     pub fn GetCursorPos(point: *mut POINT) -> BOOL;
+    pub fn GetAsyncKeyState(vKey: INT) -> SHORT;
     pub fn SetCapture(hWnd: HWND) -> HWND;
     pub fn ReleaseCapture() -> BOOL;
     pub fn DrawTextW(hdc: HDC, text: *const u16, count: INT, rect: *mut RECT, format: UINT) -> INT;
@@ -504,6 +510,20 @@ extern "system" {
     ) -> BOOL;
     pub fn DestroyMenu(menu: HMENU) -> BOOL;
     pub fn PostMessageW(window: HWND, message: UINT, wparam: WPARAM, lparam: LPARAM) -> BOOL;
+}
+
+#[link(name = "user32")]
+extern "system" {
+    pub fn SetWindowsHookExW(
+        idHook: INT,
+        lpfn: HOOKPROC,
+        hMod: HINSTANCE,
+        dwThreadId: DWORD,
+    ) -> HANDLE;
+    pub fn UnhookWindowsHookEx(hhk: HANDLE) -> BOOL;
+    pub fn CallNextHookEx(hhk: HANDLE, nCode: INT, wParam: WPARAM, lParam: LPARAM) -> LRESULT;
+    pub fn GetCurrentThreadId() -> DWORD;
+    pub fn PostThreadMessageW(idThread: DWORD, Msg: UINT, wParam: WPARAM, lParam: LPARAM) -> BOOL;
 }
 
 #[link(name = "shell32")]

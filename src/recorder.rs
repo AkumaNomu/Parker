@@ -30,6 +30,8 @@ pub struct Recorder {
     final_path: Option<PathBuf>,
     ffmpeg_path: Option<PathBuf>,
     last_error: Option<String>,
+    input_handle: Option<crate::input_capture::InputCaptureHandle>,
+    ring_seconds: Option<usize>,
 }
 
 struct ActiveRecording {
@@ -37,6 +39,7 @@ struct ActiveRecording {
     capture_path: PathBuf,
     final_path: PathBuf,
     ffmpeg_path: PathBuf,
+    ring_seconds: Option<usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -94,6 +97,8 @@ impl Recorder {
             final_path: None,
             ffmpeg_path: None,
             last_error: None,
+            input_handle: None,
+            ring_seconds: None,
         })
     }
 
@@ -127,6 +132,18 @@ impl Recorder {
     }
 
     pub fn start(&mut self, rect: ScreenRect) -> Result<PathBuf, String> {
+        self.start_with_ring_seconds(rect, None)
+    }
+
+    pub fn start_clip(&mut self, rect: ScreenRect, ring_seconds: usize) -> Result<PathBuf, String> {
+        self.start_with_ring_seconds(rect, Some(ring_seconds))
+    }
+
+    fn start_with_ring_seconds(
+        &mut self,
+        rect: ScreenRect,
+        ring_seconds_override: Option<usize>,
+    ) -> Result<PathBuf, String> {
         if self.is_recording() {
             return Err("A recording is already active.".to_string());
         }
@@ -142,7 +159,18 @@ impl Recorder {
                 .to_string()
         })?;
         let base = timestamped_basename();
-        let capture_path = self.output_directory.join(format!("{base}.capture.mkv"));
+        let ring_seconds = ring_seconds_override.or_else(|| {
+            std::env::var("PARKER_RING_SECONDS")
+                .ok()
+                .and_then(|s| s.parse::<usize>().ok())
+        });
+        self.ring_seconds = ring_seconds;
+        let capture_path = if ring_seconds.is_some() {
+            self.output_directory
+                .join(format!("{base}.capture.%03d.mkv"))
+        } else {
+            self.output_directory.join(format!("{base}.capture.mkv"))
+        };
         let final_path = self.output_directory.join(format!("{base}.mp4"));
         let log_path = self.output_directory.join("ffmpeg.log");
         let log = open_log(&log_path)?;
@@ -188,7 +216,16 @@ impl Recorder {
                 .arg("-b:a")
                 .arg("192k");
         } else {
-            command.arg("-an");
+            // Capture default microphone audio when no device is specified
+            command
+                .arg("-f")
+                .arg("dshow")
+                .arg("-i")
+                .arg("audio=default")
+                .arg("-c:a")
+                .arg("aac")
+                .arg("-b:a")
+                .arg("192k");
         }
 
         command
@@ -201,13 +238,34 @@ impl Recorder {
             .arg("-crf")
             .arg("18")
             .arg("-pix_fmt")
-            .arg("yuv420p")
-            .arg("-f")
-            .arg("matroska")
-            .arg(&capture_path)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::from(log));
+            .arg("yuv420p");
+
+        if let Some(s) = ring_seconds {
+            // Use ffmpeg segment muxer to keep a rolling buffer of the last N seconds (1s segments)
+            command
+                .arg("-f")
+                .arg("segment")
+                .arg("-segment_time")
+                .arg("1")
+                .arg("-segment_wrap")
+                .arg(s.to_string())
+                .arg("-reset_timestamps")
+                .arg("1")
+                .arg("-segment_format")
+                .arg("matroska")
+                .arg(&capture_path)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::from(log));
+        } else {
+            command
+                .arg("-f")
+                .arg("matroska")
+                .arg(&capture_path)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::from(log));
+        }
 
         let mut child = command
             .spawn()
@@ -228,6 +286,16 @@ impl Recorder {
         self.final_path = Some(final_path.clone());
         self.ffmpeg_path = Some(ffmpeg);
         self.child = Some(child);
+
+        // Start input capture for keystrokes/mouse if requested (defaults to enabled)
+        if std::env::var("PARKER_CAPTURE_INPUT")
+            .ok()
+            .is_none_or(|v| v != "0")
+        {
+            let past = ring_seconds.unwrap_or(30);
+            let handle = crate::input_capture::start_input_capture(past);
+            self.input_handle = Some(handle);
+        }
         Ok(final_path)
     }
 
@@ -243,6 +311,16 @@ impl Recorder {
             return Err("The active recording state is incomplete.".to_string());
         }
 
+        // If we have input capture data, dump it to a file now
+        if let Some(handle) = self.input_handle.take() {
+            handle.stop();
+            let events = handle.dump_events();
+            let input_path = self.input_path_for_capture();
+            if let Ok(s) = serde_json::to_string_pretty(&events) {
+                let _ = std::fs::write(&input_path, s);
+            }
+        }
+
         let active = ActiveRecording {
             child: self.child.take().expect("child checked above"),
             capture_path: self
@@ -251,6 +329,7 @@ impl Recorder {
                 .expect("capture path checked above"),
             final_path: self.final_path.take().expect("final path checked above"),
             ffmpeg_path: self.ffmpeg_path.take().expect("FFmpeg path checked above"),
+            ring_seconds: self.ring_seconds,
         };
         let output_directory = self.output_directory.clone();
         let notify_window = notify_window as usize;
@@ -270,6 +349,16 @@ impl Recorder {
     pub fn output_directory(&self) -> &Path {
         &self.output_directory
     }
+
+    fn input_path_for_capture(&self) -> PathBuf {
+        let base = self
+            .final_path
+            .as_ref()
+            .and_then(|path| path.file_stem())
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("parker");
+        self.output_directory.join(format!("{base}-input.json"))
+    }
 }
 
 fn finalize_recording(
@@ -281,6 +370,7 @@ fn finalize_recording(
         capture_path,
         final_path,
         ffmpeg_path,
+        ring_seconds,
     } = &mut active;
 
     if let Some(mut input) = child.stdin.take() {
@@ -289,6 +379,75 @@ fn finalize_recording(
     }
 
     wait_for_capture(child)?;
+
+    // If capture_path is a segment pattern (contains '%'), gather recent segments and concat
+    if capture_path.to_string_lossy().contains('%') {
+        let s = ring_seconds.unwrap_or(30);
+        let file_name = capture_path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("capture");
+        let prefix = file_name.split('%').next().unwrap_or(file_name);
+
+        let mut segs: Vec<_> = std::fs::read_dir(output_directory)
+            .map_err(|e| e.to_string())?
+            .filter_map(|e| e.ok())
+            .filter(|d| {
+                if let Some(name) = d.file_name().to_str() {
+                    name.starts_with(prefix) && name.ends_with(".mkv")
+                } else {
+                    false
+                }
+            })
+            .map(|d| d.path())
+            .collect();
+        segs.sort();
+        if segs.is_empty() {
+            return Err("No capture segments found".to_string());
+        }
+
+        let take_n = std::cmp::min(s, segs.len());
+        let last = &segs[segs.len() - take_n..];
+        let list_txt = output_directory.join("_segments.txt");
+        let mut listf = std::fs::File::create(&list_txt).map_err(|e| e.to_string())?;
+        for seg in last {
+            use std::io::Write;
+            writeln!(listf, "file '{}'", seg.display()).ok();
+        }
+
+        let tmp = output_directory.join("_clip_temp.mkv");
+        let ff = locate_ffmpeg().ok_or_else(|| "FFmpeg not found".to_string())?;
+        let status = Command::new(&ff)
+            .arg("-y")
+            .arg("-f")
+            .arg("concat")
+            .arg("-safe")
+            .arg("0")
+            .arg("-i")
+            .arg(&list_txt)
+            .arg("-c")
+            .arg("copy")
+            .arg(&tmp)
+            .status()
+            .map_err(|e| e.to_string())?;
+        if !status.success() {
+            return Err("Failed to concat segments".to_string());
+        }
+
+        let source_bytes = verify_nonempty(&tmp, "capture")?;
+        let encoder = post_process(ffmpeg_path, &tmp, final_path, output_directory)?;
+        let final_bytes = verify_nonempty(final_path, "recording")?;
+        let _ = std::fs::remove_file(&tmp);
+        let _ = std::fs::remove_file(&list_txt);
+
+        return Ok(RecordingResult {
+            path: final_path.clone(),
+            encoder,
+            source_bytes,
+            final_bytes,
+        });
+    }
+
     let source_bytes = verify_nonempty(capture_path, "capture")?;
     let encoder = post_process(ffmpeg_path, capture_path, final_path, output_directory)?;
     let final_bytes = verify_nonempty(final_path, "recording")?;
@@ -332,11 +491,12 @@ pub fn post_process(
     let config = compression_config()?;
     let mut candidates = encoder_candidates(ffmpeg)?;
     // If the user wants to force GPU encoding, filter out CPU-only encoders
-    if std::env::var("PARKER_USE_GPU").ok().map_or(false, |v| {
+    if std::env::var("PARKER_USE_GPU").ok().is_some_and(|v| {
         let lower = v.to_ascii_lowercase();
         !matches!(lower.as_str(), "0" | "false" | "no" | "off")
     }) {
-        candidates.retain(|e| matches!(e, EncoderKind::Nvenc | EncoderKind::Qsv | EncoderKind::Amf));
+        candidates
+            .retain(|e| matches!(e, EncoderKind::Nvenc | EncoderKind::Qsv | EncoderKind::Amf));
         if candidates.is_empty() {
             // Fallback to software encoder if no GPU encoders are available
             candidates.push(EncoderKind::X264);
@@ -375,11 +535,7 @@ pub fn post_process(
             command.arg("-an");
         }
 
-        command
-            .arg("-sn")
-            .arg("-dn")
-            .arg("-vf")
-            .arg(&filter);
+        command.arg("-sn").arg("-dn").arg("-vf").arg(&filter);
 
         append_encoder_arguments(&mut command, encoder, &config);
 
