@@ -11,6 +11,7 @@ message loops and are excluded from capture where supported.
   routing, and workflow coordination.
 - `settings.rs`: first-run data-directory initialization, persistent
   `settings.env` creation, environment overrides, and settings opening.
+- `signals.rs`: shared success/error/cancel audio and toast feedback helpers.
 - `tray.rs`: notification-area icon, context menu, tooltip state, and Explorer
   restart recovery.
 - `selector.rs`: reusable, topmost virtual-desktop region selector.
@@ -22,6 +23,8 @@ message loops and are excluded from capture where supported.
 - `recorder.rs`: cursor-free FFmpeg region capture, graceful stop, hardware
   encoder detection/fallback, compression profiles, MP4 post-processing,
   validation, and cleanup.
+- `scroll_capture.rs`: repeated region screenshot capture, overlap detection,
+  vertical stitching, and stitched image export.
 - `toast.rs`: non-activating Win32 toast-style windows excluded from capture.
 - `clipboard.rs`: `CF_HDROP` file-copy and `CF_UNICODETEXT` text-copy behavior.
 - `win.rs`: narrow Win32 FFI surface used by Parker.
@@ -69,6 +72,32 @@ message loops and are excluded from capture where supported.
 7. Failed hardware attempts are removed before the next encoder is tried.
 8. Parker verifies the final MP4, removes the intermediate file, and places the
    final path on the clipboard as `CF_HDROP`.
+
+## Clip-recording workflow
+
+1. `Ctrl+Shift+F7` opens the region selector.
+2. Parker starts FFmpeg in rolling-buffer mode and retains only the last
+   `PARKER_RING_SECONDS` seconds of capture.
+3. Pressing the hotkey again stops capture and saves the trailing buffer as an
+   MP4.
+4. The final clip is validated and copied to the clipboard as `CF_HDROP`.
+
+## Scroll-capture workflow
+
+1. `Ctrl+Shift+F11` opens the region selector.
+2. Parker captures the selected rectangle repeatedly while the user scrolls the
+   content manually.
+3. When the hotkey is pressed again, Parker stitches overlapping frames into a
+   single tall image.
+4. The stitched image is validated and copied to the clipboard as `CF_HDROP`.
+
+## Last-saved-path workflow
+
+1. Successful recording and scroll-capture saves update in-memory last-saved
+   path state even if the clipboard file-copy step fails.
+2. The tray menu exposes `Copy last file path` when a saved output exists.
+3. Selecting it copies the absolute path as Unicode text for pasting into
+   terminals, chats, or file dialogs.
 
 ## Performance decisions
 

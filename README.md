@@ -41,6 +41,20 @@ Parker then automatically:
 - writes MP4 fast-start metadata for immediate playback;
 - removes the intermediate file after successful conversion;
 - copies the final MP4 as a Windows file clipboard entry.
+- remembers the last saved output and can copy its full path from the tray menu.
+
+### Last 30–60 second clip recording — `Ctrl + Shift + F7`
+
+Press the hotkey, drag over a region, and Parker keeps a rolling buffer of the
+last few seconds. Stop the capture to save only the tail of the buffer as an MP4
+clip. Set `PARKER_RING_SECONDS=30` or `60` in `settings.env` to tune the clip
+length.
+
+### Scroll capture — `Ctrl + Shift + F11`
+
+Drag over a region, then scroll the page or conversation normally while Parker
+takes repeated screenshots and stitches them into one long image. Stop the
+capture to save the stitched result and copy it to the clipboard as a file.
 
 ## Notification-area controls
 
@@ -69,6 +83,8 @@ screen capture.
 |---|---|
 | `Ctrl + Shift + F8` | Select a region for QR detection or smart OCR. |
 | `Ctrl + Shift + F9` | Select/start region recording; press again to optimize and copy. |
+| `Ctrl + Shift + F7` | Select/start last-30-to-60-second clip recording; press again to save. |
+| `Ctrl + Shift + F11` | Select/start scroll capture; press again to stitch and copy. |
 | `Ctrl + Shift + F10` | Open the recordings directory. |
 | `Ctrl + Shift + F12` | Finalize an active recording and exit. |
 
@@ -148,6 +164,9 @@ Parker next starts. Process-level environment variables take precedence.
 | `PARKER_RECORD_FPS` | `30` | Capture rate, `1`–`120`. |
 | `PARKER_COMPRESSION` | `balanced` | `compact`, `balanced`, or `quality`. |
 | `PARKER_VIDEO_ENCODER` | `auto` | `auto`, `nvenc`, `qsv`, `amf`, or `libx264`. |
+| `PARKER_RING_SECONDS` | `45` | Rolling-buffer length for clip recording. |
+| `PARKER_HOTKEY_CLIP` | `F7` | Custom clip-recording hotkey key. |
+| `PARKER_HOTKEY_SCROLL` | `F11` | Custom scroll-capture hotkey key. |
 | `PARKER_MAX_WIDTH` | Profile-defined | Optional maximum final width; `0` disables size limiting. |
 | `PARKER_MAX_HEIGHT` | Profile-defined | Optional maximum final height; `0` disables size limiting. |
 | `PARKER_POST_CRF` | Profile-defined | Optional x264/NVENC quality override, `0`–`51`. |
@@ -222,6 +241,7 @@ install.ps1                  Source/release-aware per-user installer
 - Dense borderless tables may not be classified correctly.
 - Protected video and hardware overlays may appear blank.
 - Hotkeys are fixed in the current release.
+- Scroll capture depends on manual user scrolling and a clean, stable page.
 - Custom toast overlays currently appear on the primary monitor.
 
 ## Uninstall
