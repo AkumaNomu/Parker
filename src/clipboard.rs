@@ -172,3 +172,42 @@ fn allocate_u32(value: u32) -> Result<HGLOBAL, String> {
 
     Ok(memory)
 }
+
+pub fn get_text(owner: HWND) -> Result<String, String> {
+    if unsafe { OpenClipboard(owner) } == 0 {
+        return Err("Could not open clipboard".to_string());
+    }
+
+    let _guard = ClipboardGuard;
+
+    let format = CF_UNICODETEXT;
+    if unsafe { IsClipboardFormatAvailable(format) } == 0 {
+        return Err("Clipboard does not contain text".to_string());
+    }
+
+    let handle = unsafe { GetClipboardData(format) };
+    if handle.is_null() {
+        return Err("Could not get clipboard data".to_string());
+    }
+
+    let pointer = unsafe { GlobalLock(handle) } as *const u16;
+    if pointer.is_null() {
+        return Err("Could not lock clipboard memory".to_string());
+    }
+
+    let mut len = 0;
+    unsafe {
+        while *pointer.add(len) != 0 {
+            len += 1;
+        }
+    }
+
+    let slice = unsafe { std::slice::from_raw_parts(pointer, len) };
+    let result = String::from_utf16_lossy(slice);
+
+    unsafe {
+        GlobalUnlock(handle);
+    }
+
+    Ok(result)
+}

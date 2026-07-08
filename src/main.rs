@@ -15,6 +15,7 @@ mod scroll_capture;
 mod selector;
 mod settings;
 mod signals;
+mod site_retriever;
 mod toast;
 mod tray;
 mod updater;
@@ -40,6 +41,7 @@ const HOTKEY_FOLDER: i32 = 3;
 const HOTKEY_QUIT: i32 = 4;
 const HOTKEY_CLIP: i32 = 5;
 const HOTKEY_SCROLL: i32 = 6;
+const HOTKEY_EXTRACT_WEB: i32 = 7;
 const APP_TIMER_ID: usize = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -52,6 +54,7 @@ enum AppAction {
     OpenRecordings,
     CopyLastPath,
     OpenSettings,
+    ExtractWebpage,
     Exit,
 }
 
@@ -88,6 +91,13 @@ fn main() {
     if args.get(1).map(|s| s.as_str()) == Some("batch") {
         let dir = args.get(2).map(Path::new).unwrap_or_else(|| Path::new("."));
         batch_process(dir);
+        return;
+    }
+
+    if args.get(1).map(|s| s.as_str()) == Some("web") {
+        let url = args.get(2).expect("Usage: parker web <url> [output_dir]");
+        let output_dir = args.get(3).map(Path::new).unwrap_or_else(|| Path::new(".")).join("parker-web");
+        extract_webpage(url, &output_dir);
         return;
     }
 
@@ -222,6 +232,7 @@ fn main() {
                 HOTKEY_SCROLL => Some(AppAction::ToggleScrollCapture),
                 HOTKEY_FOLDER => Some(AppAction::OpenRecordings),
                 HOTKEY_QUIT => Some(AppAction::Exit),
+                HOTKEY_EXTRACT_WEB => Some(AppAction::ExtractWebpage),
                 _ => None,
             }
         } else if message.message == recording_indicator::WM_RECORDING_INDICATOR_STOP {
@@ -370,6 +381,48 @@ fn main() {
                     Ok(()) => toast::show("Opened Parker settings. Restart Parker after editing."),
                     Err(error) => show_error(&error),
                 },
+                AppAction::ExtractWebpage => {
+                    #[cfg(feature = "site_retriever")]
+                    {
+                        use site_retriever::SiteRetriever;
+                        
+                        // For now, use clipboard to get URL or prompt
+                        // This could be enhanced to show an input dialog
+                        let output_dir = recorder.output_directory().join("parker-web");
+                        if let Err(e) = std::fs::create_dir_all(&output_dir) {
+                            show_error(&format!("Failed to create output directory: {}", e));
+                        } else {
+                            // Try to get URL from clipboard
+                            if let Ok(url) = clipboard::get_text(app_window) {
+                                if url.starts_with("http://") || url.starts_with("https://") {
+                                    toast::show(format!("Extracting: {}", url));
+                                    std::thread::spawn(move || {
+                                        let retriever = match SiteRetriever::new(output_dir, true) {
+                                            Ok(r) => r,
+                                            Err(e) => {
+                                                toast::show(format!("Error: {}", e));
+                                                return;
+                                            }
+                                        };
+                                        if let Err(e) = extract_webpage_thread(&retriever, &url) {
+                                            toast::show(format!("Extraction failed: {}", e));
+                                        } else {
+                                            toast::show("Webpage extracted successfully!");
+                                        }
+                                    });
+                                } else {
+                                    toast::show("Clipboard doesn't contain a valid URL. Copy a URL first, then press Ctrl+Shift+F6.");
+                                }
+                            } else {
+                                toast::show("Clipboard doesn't contain a valid URL. Copy a URL first, then press Ctrl+Shift+F6.");
+                            }
+                        }
+                    }
+                    #[cfg(not(feature = "site_retriever"))]
+                    {
+                        toast::show("Extract webpage feature not available. Rebuild with --features site_retriever");
+                    }
+                },
                 AppAction::Exit => {
                     if recorder.is_recording() {
                         recording_indicator.take();
@@ -449,6 +502,7 @@ fn map_tray_action(action: TrayAction) -> AppAction {
         TrayAction::OpenRecordings => AppAction::OpenRecordings,
         TrayAction::CopyLastPath => AppAction::CopyLastPath,
         TrayAction::OpenSettings => AppAction::OpenSettings,
+        TrayAction::ExtractWebpage => AppAction::ExtractWebpage,
         TrayAction::Exit => AppAction::Exit,
     }
 }
@@ -795,14 +849,16 @@ fn register_hotkeys(window: HWND) -> Result<(), String> {
     let (scroll_key, scroll_name) = parse_hotkey("PARKER_HOTKEY_SCROLL", 0x7A, "Ctrl+Shift+F11");
     let (fol_key, fol_name) = parse_hotkey("PARKER_HOTKEY_FOLDER", VK_F10, "Ctrl+Shift+F10");
     let (quit_key, quit_name) = parse_hotkey("PARKER_HOTKEY_QUIT", VK_F12, "Ctrl+Shift+F12");
+    let (web_key, web_name) = parse_hotkey("PARKER_HOTKEY_WEB", 0x75, "Ctrl+Shift+F6");
 
-    let bindings: [(i32, u32, String); 6] = [
+    let bindings: [(i32, u32, String); 7] = [
         (HOTKEY_OCR, ocr_key, ocr_name),
         (HOTKEY_RECORD, rec_key, rec_name),
         (HOTKEY_CLIP, clip_key, clip_name),
         (HOTKEY_SCROLL, scroll_key, scroll_name),
         (HOTKEY_FOLDER, fol_key, fol_name),
         (HOTKEY_QUIT, quit_key, quit_name),
+        (HOTKEY_EXTRACT_WEB, web_key, web_name),
     ];
 
     for (id, key, label) in bindings {
@@ -825,6 +881,7 @@ fn unregister_hotkeys(window: HWND) {
         HOTKEY_SCROLL,
         HOTKEY_FOLDER,
         HOTKEY_QUIT,
+        HOTKEY_EXTRACT_WEB,
     ] {
         unsafe {
             UnregisterHotKey(window, id);
@@ -919,4 +976,78 @@ fn batch_process(dir: &Path) {
         }
     }
     println!("Batch processing complete.");
+}
+
+#[cfg(feature = "site_retriever")]
+fn extract_webpage(url: &str, output_dir: &Path) {
+    use site_retriever::SiteRetriever;
+    
+    println!("Extracting webpage: {}", url);
+    println!("Output directory: {}", output_dir.display());
+
+    let retriever = match SiteRetriever::new(output_dir.to_path_buf(), true) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            return;
+        }
+    };
+
+    let page = match retriever.extract(url) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Failed to extract page: {}", e);
+            return;
+        }
+    };
+
+    println!("Page title: {}", page.title);
+    println!("Components found: {}", page.components.len());
+    println!("CSS assets: {}", page.assets.css.len());
+    println!("JS assets: {}", page.assets.js.len());
+    println!("Images: {}", page.assets.images.len());
+    println!("Fonts: {}", page.assets.fonts.len());
+
+    println!("Downloading assets...");
+    let mut page_mut = page;
+    if let Err(e) = retriever.download_assets(&mut page_mut.assets) {
+        eprintln!("Warning: Some assets failed to download: {}", e);
+    }
+
+    println!("Saving extracted data...");
+    if let Err(e) = retriever.save_page(&page_mut) {
+        eprintln!("Failed to save: {}", e);
+        return;
+    }
+
+    println!("Done! Files saved to: {}", output_dir.display());
+}
+
+#[cfg(not(feature = "site_retriever"))]
+fn extract_webpage(_url: &str, _output_dir: &Path) {
+    eprintln!("Error: site_retriever feature not enabled. Rebuild with --features site_retriever");
+}
+
+#[cfg(feature = "site_retriever")]
+fn extract_webpage_thread(retriever: &SiteRetriever, url: &str) -> Result<(), String> {
+    let page = retriever.extract(url)?;
+    
+    println!("Page title: {}", page.title);
+    println!("Components found: {}", page.components.len());
+    println!("CSS assets: {}", page.assets.css.len());
+    println!("JS assets: {}", page.assets.js.len());
+    println!("Images: {}", page.assets.images.len());
+    println!("Fonts: {}", page.assets.fonts.len());
+
+    println!("Downloading assets...");
+    let mut page_mut = page;
+    if let Err(e) = retriever.download_assets(&mut page_mut.assets) {
+        eprintln!("Warning: Some assets failed to download: {}", e);
+    }
+
+    println!("Saving extracted data...");
+    retriever.save_page(&page_mut)?;
+
+    println!("Done! Files saved to: {}", retriever.output_dir.display());
+    Ok(())
 }

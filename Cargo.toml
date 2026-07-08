@@ -19,11 +19,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # Optional site-retriever feature (adds web-crawl + renderer support)
-reqwest = { version = "0.11", optional = true, features=["rustls-tls"] }
+reqwest = { version = "0.11", optional = true, features=["rustls-tls", "blocking"] }
 kuchiki = { version = "0.8", optional = true }
 headless_chrome = { version = "1", optional = true }
 regex = { version = "1", optional = true }
-quick-xml = { version = "0.29", optional = true }
+quick-xml = { version = "0.29", optional = true, features = ["serialize"] }
 
 [features]
 site_retriever = ["reqwest", "kuchiki", "regex", "quick-xml"]

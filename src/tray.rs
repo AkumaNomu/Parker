@@ -13,6 +13,7 @@ const CMD_OPEN_RECORDINGS: UINT = 1005;
 const CMD_COPY_LAST_PATH: UINT = 1006;
 const CMD_OPEN_SETTINGS: UINT = 1007;
 const CMD_EXIT: UINT = 1008;
+const CMD_EXTRACT_WEB: UINT = 1009;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrayAction {
@@ -23,6 +24,7 @@ pub enum TrayAction {
     OpenRecordings,
     CopyLastPath,
     OpenSettings,
+    ExtractWebpage,
     Exit,
 }
 
@@ -183,6 +185,15 @@ fn show_menu(
             );
         }
         append(menu, CMD_OPEN_SETTINGS, "Settings");
+        #[cfg(feature = "site_retriever")]
+        append(menu, CMD_EXTRACT_WEB, "Extract webpage\tCtrl+Shift+F6");
+        #[cfg(not(feature = "site_retriever"))]
+        append_with_flags(
+            menu,
+            CMD_EXTRACT_WEB,
+            "Extract webpage (not available)",
+            MF_STRING | MF_GRAYED,
+        );
         AppendMenuW(menu, MF_SEPARATOR, 0, null_mut());
         append(menu, CMD_EXIT, "Exit Parker\tCtrl+Shift+F12");
 
@@ -209,6 +220,7 @@ fn show_menu(
             CMD_OPEN_RECORDINGS => Some(TrayAction::OpenRecordings),
             CMD_COPY_LAST_PATH => Some(TrayAction::CopyLastPath),
             CMD_OPEN_SETTINGS => Some(TrayAction::OpenSettings),
+            CMD_EXTRACT_WEB => Some(TrayAction::ExtractWebpage),
             CMD_EXIT => Some(TrayAction::Exit),
             _ => None,
         }
