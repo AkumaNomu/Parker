@@ -203,29 +203,40 @@ impl Recorder {
             .arg("-i")
             .arg("desktop");
 
-        if let Ok(audio_device) = std::env::var("PARKER_AUDIO_DEVICE") {
-            command
-                .arg("-f")
-                .arg("dshow")
-                .arg("-thread_queue_size")
-                .arg("1024")
-                .arg("-i")
-                .arg(format!("audio={}", audio_device.trim()))
-                .arg("-c:a")
-                .arg("aac")
-                .arg("-b:a")
-                .arg("192k");
-        } else {
-            // Capture default microphone audio when no device is specified
-            command
-                .arg("-f")
-                .arg("dshow")
-                .arg("-i")
-                .arg("audio=default")
-                .arg("-c:a")
-                .arg("aac")
-                .arg("-b:a")
-                .arg("192k");
+        let audio_mode = std::env::var("PARKER_RECORD_AUDIO")
+            .unwrap_or_else(|_| "none".to_string())
+            .trim()
+            .to_ascii_lowercase();
+        match audio_mode.as_str() {
+            "mic" => {
+                command
+                    .arg("-f").arg("dshow")
+                    .arg("-thread_queue_size").arg("1024")
+                    .arg("-i").arg("audio=default")
+                    .arg("-c:a").arg("aac")
+                    .arg("-b:a").arg("192k");
+            }
+            "system" => {
+                command
+                    .arg("-f").arg("dshow")
+                    .arg("-thread_queue_size").arg("1024")
+                    .arg("-i").arg("audio=virtual-audio-capturer")
+                    .arg("-c:a").arg("aac")
+                    .arg("-b:a").arg("192k");
+            }
+            "both" => {
+                command
+                    .arg("-f").arg("dshow")
+                    .arg("-thread_queue_size").arg("1024")
+                    .arg("-i").arg("audio=default")
+                    .arg("-f").arg("dshow")
+                    .arg("-thread_queue_size").arg("1024")
+                    .arg("-i").arg("audio=virtual-audio-capturer")
+                    .arg("-filter_complex").arg("amix=inputs=2:duration=first")
+                    .arg("-c:a").arg("aac")
+                    .arg("-b:a").arg("192k");
+            }
+            _ => {}
         }
 
         command
@@ -529,10 +540,14 @@ pub fn post_process(
             .arg("-map_metadata")
             .arg("-1");
 
-        if std::env::var("PARKER_AUDIO_DEVICE").is_ok() {
-            command.arg("-map").arg("0:a?").arg("-c:a").arg("copy");
-        } else {
+        let audio_mode = std::env::var("PARKER_RECORD_AUDIO")
+            .unwrap_or_else(|_| "none".to_string())
+            .trim()
+            .to_ascii_lowercase();
+        if audio_mode == "none" || audio_mode.is_empty() {
             command.arg("-an");
+        } else {
+            command.arg("-map").arg("0:a?").arg("-c:a").arg("copy");
         }
 
         command.arg("-sn").arg("-dn").arg("-vf").arg(&filter);

@@ -20,5 +20,7 @@ Copy-Item (Join-Path $PSScriptRoot "install.ps1") $dist -Force
 Copy-Item (Join-Path $PSScriptRoot "uninstall.ps1") $dist -Force
 Copy-Item (Join-Path $PSScriptRoot "setup.cmd") $dist -Force
 Copy-Item (Join-Path $PSScriptRoot "settings.env.example") $dist -Force
+New-Item -ItemType Directory -Force -Path (Join-Path $dist "scripts") | Out-Null
+Copy-Item (Join-Path $PSScriptRoot "scripts\install-ffmpeg.ps1") (Join-Path $dist "scripts\install-ffmpeg.ps1") -Force
 
 Write-Host "Built: $dist\parker.exe"

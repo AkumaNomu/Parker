@@ -1,7 +1,8 @@
 use crate::screenshot::capture_region_to_bmp;
 use crate::selector::ScreenRect;
-use crate::win::{HWND, UINT, WM_APP};
+use crate::win::*;
 use image::RgbaImage;
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -67,7 +68,26 @@ impl ScrollCapture {
         let stop_flag = Arc::new(AtomicBool::new(false));
         let worker_stop = Arc::clone(&stop_flag);
         let worker_dir = frame_dir.clone();
-        let worker = thread::spawn(move || capture_frames(rect, &worker_dir, worker_stop));
+        let auto_scroll = env::var("PARKER_SCROLL_MODE")
+            .map(|v| v.eq_ignore_ascii_case("auto"))
+            .unwrap_or(false);
+        let scroll_amount = env::var("PARKER_SCROLL_SPEED")
+            .ok()
+            .and_then(|v| v.parse::<i32>().ok())
+            .filter(|v| *v > 0)
+            .unwrap_or(120);
+        let stable_frames = env::var("PARKER_SCROLL_STABLE_FRAMES")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(5);
+
+        let worker = thread::spawn(move || {
+            if auto_scroll {
+                capture_frames_auto(rect, &worker_dir, worker_stop, scroll_amount, stable_frames)
+            } else {
+                capture_frames(rect, &worker_dir, worker_stop)
+            }
+        });
 
         self.active = Some(ActiveScrollCapture {
             stop_flag,
@@ -128,6 +148,85 @@ fn capture_frames(
     }
 
     Ok(count)
+}
+
+fn capture_frames_auto(
+    rect: ScreenRect,
+    frame_dir: &Path,
+    stop_flag: Arc<AtomicBool>,
+    scroll_amount: i32,
+    stable_frames: usize,
+) -> Result<usize, String> {
+    let mut count = 0usize;
+    let mut prev: Option<RgbaImage> = None;
+    let mut unchanged = 0usize;
+    scroll_wheel(scroll_amount);
+
+    loop {
+        if stop_flag.load(Ordering::Relaxed) {
+            break;
+        }
+
+        let frame_path = frame_dir.join(format!("frame-{count:05}.bmp"));
+        capture_region_to_bmp(rect, &frame_path)?;
+        count += 1;
+
+        if let Some(prev_img) = prev {
+            let current = image::open(&frame_path)
+                .map_err(|e| format!("Could not read frame for comparison: {e}"))?
+                .to_rgba8();
+            if frames_similar(&prev_img, &current, 0.98) {
+                unchanged += 1;
+                if unchanged >= stable_frames {
+                    break;
+                }
+            } else {
+                unchanged = 0;
+                scroll_wheel(scroll_amount);
+            }
+            prev = Some(current);
+        } else {
+            prev = Some(
+                image::open(&frame_path)
+                    .map_err(|e| format!("Could not read first frame: {e}"))?
+                    .to_rgba8(),
+            );
+            thread::sleep(Duration::from_millis(300));
+        }
+    }
+
+    Ok(count)
+}
+
+fn scroll_wheel(amount: i32) {
+    unsafe {
+        mouse_event(MOUSEEVENTF_WHEEL, 0, 0, amount as DWORD, 0);
+    }
+    thread::sleep(Duration::from_millis(200));
+}
+
+fn frames_similar(a: &RgbaImage, b: &RgbaImage, threshold: f64) -> bool {
+    if a.dimensions() != b.dimensions() {
+        return false;
+    }
+    let (w, h) = a.dimensions();
+    let total = (w as u64).saturating_mul(h as u64);
+    let sample_step = (w / 32).max(1);
+
+    let mut diff = 0u64;
+    for y in 0..h {
+        for x in (0..w).step_by(sample_step as usize) {
+            let pa = a.get_pixel(x, y).0;
+            let pb = b.get_pixel(x, y).0;
+            diff += pa.iter().zip(pb.iter()).map(|(a, b)| a.abs_diff(*b) as u64).sum::<u64>();
+        }
+    }
+
+    let max_diff = (total / sample_step as u64) * 255 * 3;
+    if max_diff == 0 {
+        return true;
+    }
+    (diff as f64) / (max_diff as f64) < (1.0 - threshold)
 }
 
 fn finalize_scroll_capture(active: ActiveScrollCapture) -> Result<ScrollCaptureResult, String> {
@@ -347,5 +446,14 @@ mod tests {
         stitch_scroll_frames(&[first, second], &out).expect("stitch");
         let combined = image::open(&out).expect("open stitched").to_rgba8();
         assert_eq!(combined.height(), 9);
+    }
+
+    #[test]
+    fn similar_frames_detect_change() {
+        let a = frame_from_rows(&[10, 20, 30, 40, 50, 60]);
+        let b = frame_from_rows(&[10, 20, 30, 40, 50, 60]);
+        assert!(frames_similar(&a, &b, 0.99));
+        let c = frame_from_rows(&[10, 20, 255, 40, 50, 60]);
+        assert!(!frames_similar(&a, &c, 0.99));
     }
 }

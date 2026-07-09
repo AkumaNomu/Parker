@@ -198,7 +198,7 @@ unsafe extern "system" fn selector_window_proc(
             cancel_selection(window);
             0
         }
-        WM_KEYDOWN if wparam == VK_ESCAPE => {
+        WM_KEYDOWN if wparam == VK_ESCAPE as WPARAM => {
             cancel_selection(window);
             0
         }

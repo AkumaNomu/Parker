@@ -1,6 +1,6 @@
 use crate::win::*;
 use std::collections::HashMap;
-use std::ffi::c_void;
+use std::mem::size_of;
 use std::ptr::null_mut;
 use std::sync::{Mutex, OnceLock};
 use std::thread;
@@ -51,15 +51,15 @@ pub fn show(message: impl Into<String>) {
 
     let message = message.into();
     let _ = thread::spawn(move || unsafe {
-        let mut work_area = RECT::default();
-        if SystemParametersInfoW(
-            SPI_GETWORKAREA,
-            0,
-            &mut work_area as *mut RECT as *mut c_void,
-            0,
-        ) == 0
-        {
-            work_area = RECT {
+        let mut cursor = POINT::default();
+        GetCursorPos(&mut cursor);
+        let monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
+        let mut info = MONITORINFO {
+            cbSize: size_of::<MONITORINFO>() as DWORD,
+            ..std::mem::zeroed()
+        };
+        if GetMonitorInfoW(monitor, &mut info) == 0 {
+            info.rcWork = RECT {
                 left: 0,
                 top: 0,
                 right: GetSystemMetrics(SM_CXSCREEN),
@@ -67,8 +67,8 @@ pub fn show(message: impl Into<String>) {
             };
         }
 
-        let x = work_area.right - TOAST_WIDTH - TOAST_MARGIN;
-        let y = work_area.bottom - TOAST_HEIGHT - TOAST_MARGIN;
+        let x = info.rcWork.right - TOAST_WIDTH - TOAST_MARGIN;
+        let y = info.rcWork.bottom - TOAST_HEIGHT - TOAST_MARGIN;
         let class_name = wide_null("ParkerToastWindow");
         let title = wide_null("Parker");
         let instance = GetModuleHandleW(null_mut());

@@ -14,6 +14,12 @@ const CMD_COPY_LAST_PATH: UINT = 1006;
 const CMD_OPEN_SETTINGS: UINT = 1007;
 const CMD_EXIT: UINT = 1008;
 const CMD_EXTRACT_WEB: UINT = 1009;
+const CMD_CLIPBOARD_HISTORY: UINT = 1010;
+const CMD_ACTIVITY_LOG: UINT = 1011;
+const CMD_TYPE_CLIPBOARD: UINT = 1012;
+const CMD_CLICK_HERE: UINT = 1013;
+const CMD_FIND_TEXT: UINT = 1014;
+const CMD_SAVE_SCREENSHOT: UINT = 1015;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrayAction {
@@ -24,6 +30,12 @@ pub enum TrayAction {
     OpenRecordings,
     CopyLastPath,
     OpenSettings,
+    ClipboardHistory,
+    ActivityLog,
+    TypeClipboard,
+    ClickHere,
+    FindTextOnScreen,
+    SaveScreenshot,
     ExtractWebpage,
     Exit,
 }
@@ -194,6 +206,13 @@ fn show_menu(
             "Extract webpage (not available)",
             MF_STRING | MF_GRAYED,
         );
+        append(menu, CMD_CLIPBOARD_HISTORY, "Clipboard history");
+        append(menu, CMD_ACTIVITY_LOG, "Activity log");
+        AppendMenuW(menu, MF_SEPARATOR, 0, null_mut());
+        append(menu, CMD_TYPE_CLIPBOARD, "Type clipboard text");
+        append(menu, CMD_CLICK_HERE, "Click at cursor");
+        append(menu, CMD_FIND_TEXT, "Find & click text from clipboard");
+        append(menu, CMD_SAVE_SCREENSHOT, "Save screenshot");
         AppendMenuW(menu, MF_SEPARATOR, 0, null_mut());
         append(menu, CMD_EXIT, "Exit Parker\tCtrl+Shift+F12");
 
@@ -220,6 +239,12 @@ fn show_menu(
             CMD_OPEN_RECORDINGS => Some(TrayAction::OpenRecordings),
             CMD_COPY_LAST_PATH => Some(TrayAction::CopyLastPath),
             CMD_OPEN_SETTINGS => Some(TrayAction::OpenSettings),
+            CMD_CLIPBOARD_HISTORY => Some(TrayAction::ClipboardHistory),
+            CMD_ACTIVITY_LOG => Some(TrayAction::ActivityLog),
+            CMD_TYPE_CLIPBOARD => Some(TrayAction::TypeClipboard),
+            CMD_CLICK_HERE => Some(TrayAction::ClickHere),
+            CMD_FIND_TEXT => Some(TrayAction::FindTextOnScreen),
+            CMD_SAVE_SCREENSHOT => Some(TrayAction::SaveScreenshot),
             CMD_EXTRACT_WEB => Some(TrayAction::ExtractWebpage),
             CMD_EXIT => Some(TrayAction::Exit),
             _ => None,

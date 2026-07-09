@@ -421,9 +421,11 @@ fn sanitize_filename(name: &str) -> String {
 }
 
 #[cfg(not(feature = "site_retriever"))]
+#[allow(dead_code)]
 pub struct SiteRetriever;
 
 #[cfg(not(feature = "site_retriever"))]
+#[allow(dead_code)]
 impl SiteRetriever {
     pub fn new(_output_dir: std::path::PathBuf, _download_assets: bool) -> Result<Self, String> {
         Err("site_retriever feature not enabled. Rebuild with --features site_retriever".into())

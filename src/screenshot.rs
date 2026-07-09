@@ -104,7 +104,7 @@ pub fn capture_region_to_bmp(rect: ScreenRect, output: &Path) -> Result<(), Stri
     write_bmp(output, rect.width, rect.height, &pixels)
 }
 
-fn write_bmp(path: &Path, width: i32, height: i32, pixels: &[u8]) -> Result<(), String> {
+pub fn write_bmp(path: &Path, width: i32, height: i32, pixels: &[u8]) -> Result<(), String> {
     let header_size = 14u32 + 40u32;
     let file_size = header_size
         .checked_add(pixels.len() as u32)

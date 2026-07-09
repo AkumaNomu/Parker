@@ -42,12 +42,11 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      # Package the binary (and any required assets) into a zip file
-      - name: Create zip archive
->>>>>>> 8bcf7a1 (Implement audio recording, hotkey configuration, batch processing, CI improvements and fix hotkey type errors)
+      # Install dependencies for the GUI installer
+      - name: Install Inno Setup
+        shell: powershell
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
+          winget install --id JRSoftware.InnoSetup --exact --silent --accept-package-agreements --accept-source-agreements
 
       - name: Verify release tag
         shell: powershell

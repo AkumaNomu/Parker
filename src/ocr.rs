@@ -159,15 +159,85 @@ pub fn recognize_smart(path: &Path) -> Result<OcrResult, String> {
     }
 }
 
+fn preprocess_image(path: &Path) -> Result<PathBuf, String> {
+    const DEFAULT_CONTRAST: f32 = 1.3;
+    const DEFAULT_SHARPEN: f32 = 0.3;
+
+    if !env_flag("PARKER_OCR_PREPROCESS") {
+        return Ok(path.to_path_buf());
+    }
+
+    let img = image::open(path)
+        .map_err(|e| format!("Could not read capture for preprocessing: {e}"))?
+        .to_rgba8();
+    let contrast = env::var("PARKER_OCR_PREPROCESS_CONTRAST")
+        .ok()
+        .and_then(|v| v.parse::<f32>().ok())
+        .unwrap_or(DEFAULT_CONTRAST);
+    let sharpen = env::var("PARKER_OCR_PREPROCESS_SHARPEN")
+        .ok()
+        .and_then(|v| v.parse::<f32>().ok())
+        .unwrap_or(DEFAULT_SHARPEN);
+
+    let img = apply_contrast(&img, contrast);
+    let img = apply_sharpen(&img, sharpen);
+
+    let preprocessed = path.with_extension("preprocessed.png");
+    img.save(&preprocessed)
+        .map_err(|e| format!("Could not save preprocessed image: {e}"))?;
+    Ok(preprocessed)
+}
+
+fn apply_contrast(img: &image::RgbaImage, amount: f32) -> image::RgbaImage {
+    let mut out = img.clone();
+    for pixel in out.pixels_mut() {
+        for c in 0..3 {
+            let v = pixel[c] as f32;
+            let v = (v - 128.0) * amount + 128.0;
+            pixel[c] = v.clamp(0.0, 255.0) as u8;
+        }
+    }
+    out
+}
+
+fn apply_sharpen(img: &image::RgbaImage, amount: f32) -> image::RgbaImage {
+    let (w, h) = img.dimensions();
+    let mut out = img.clone();
+    let kernel: [(i32, i32, f32); 4] = [(-1, 0, -amount), (1, 0, -amount), (0, -1, -amount), (0, 1, -amount)];
+
+    for y in 1..h.saturating_sub(1) {
+        for x in 1..w.saturating_sub(1) {
+            for c in 0..3 {
+                let center = img.get_pixel(x, y)[c] as f32 * (1.0 + 4.0 * amount);
+                let accum: f32 = kernel.iter().map(|&(dx, dy, k)| {
+                    img.get_pixel((x as i32 + dx) as u32, (y as i32 + dy) as u32)[c] as f32 * k
+                }).sum();
+                out.get_pixel_mut(x, y)[c] = (center + accum).clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+    out
+}
+
 fn run_tesseract(path: &Path, tsv: bool) -> Result<String, String> {
     let tesseract = locate_tesseract().ok_or_else(|| {
         "Tesseract OCR was not found. Run install.ps1, install Tesseract with winget, or set PARKER_TESSERACT to tesseract.exe."
             .to_string()
     })?;
+
+    let input = preprocess_image(path)?;
+    let result = run_tesseract_on(&input, &tesseract, tsv);
+    if input != path {
+        let _ = fs::remove_file(&input);
+    }
+    result
+}
+
+fn run_tesseract_on(path: &Path, tesseract: &Path, tsv: bool) -> Result<String, String> {
     let language = env::var("PARKER_OCR_LANG").unwrap_or_else(|_| "eng".to_string());
     let psm = configured_psm()?;
 
-    let mut command = Command::new(&tesseract);
+    let mut command = Command::new(tesseract);
     command
         .creation_flags(CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS)
         .arg(path)

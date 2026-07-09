@@ -3,13 +3,17 @@
 #[cfg(not(target_os = "windows"))]
 compile_error!("Parker only supports Windows.");
 
+mod activity;
 mod clipboard;
 mod config_ui;
 mod input_capture;
+mod input_controller;
 mod ocr;
 mod qr;
 mod recorder;
+mod screen_controller;
 mod recording_indicator;
+mod scheduler;
 mod screenshot;
 mod scroll_capture;
 mod selector;
@@ -19,6 +23,7 @@ mod site_retriever;
 mod toast;
 mod tray;
 mod updater;
+mod virtual_desktop;
 mod win;
 
 use ocr::OcrKind;
@@ -29,7 +34,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::ptr::null_mut;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::mpsc::Receiver;
+
+static SCHEDULED_ACTION: AtomicU8 = AtomicU8::new(0);
 use std::thread;
 use std::time::{Duration, Instant};
 use tray::TrayAction;
@@ -54,7 +62,13 @@ enum AppAction {
     OpenRecordings,
     CopyLastPath,
     OpenSettings,
+    ClipboardHistory,
+    ActivityLog,
     ExtractWebpage,
+    TypeClipboard,
+    ClickHere,
+    FindTextOnScreen,
+    SaveScreenshot,
     Exit,
 }
 
@@ -146,6 +160,11 @@ fn main() {
         return;
     }
 
+    let _ = virtual_desktop::initialize();
+    unsafe {
+        AddClipboardFormatListener(app_window);
+    }
+
     if let Err(error) = tray::add(app_window) {
         unregister_hotkeys(app_window);
         unsafe {
@@ -221,10 +240,34 @@ fn main() {
                     show_error(&error);
                 }
             }
+            let busy = recorder.is_recording()
+                || finalization.is_some()
+                || scroll_capture.is_capturing()
+                || scroll_finalization.is_some();
+            if let Some(action) = scheduler::check_schedule(busy) {
+                let code = match map_tray_action(action) {
+                    AppAction::SmartCapture => 1,
+                    AppAction::ToggleRecording => 2,
+                    AppAction::ToggleClipRecording => 3,
+                    AppAction::ToggleScrollCapture => 4,
+                    _ => 0,
+                };
+                if code != 0 {
+                    SCHEDULED_ACTION.store(code, Ordering::Relaxed);
+                }
+            }
             continue;
         }
 
-        let action = if message.message == WM_HOTKEY {
+        let scheduled = match SCHEDULED_ACTION.swap(0, Ordering::Relaxed) {
+            1 => Some(AppAction::SmartCapture),
+            2 => Some(AppAction::ToggleRecording),
+            3 => Some(AppAction::ToggleClipRecording),
+            4 => Some(AppAction::ToggleScrollCapture),
+            _ => None,
+        };
+
+        let action = scheduled.or_else(|| if message.message == WM_HOTKEY {
             match message.wParam as i32 {
                 HOTKEY_OCR => Some(AppAction::SmartCapture),
                 HOTKEY_RECORD => Some(AppAction::ToggleRecording),
@@ -249,9 +292,19 @@ fn main() {
                 last_saved_path.is_some(),
             )
             .map(map_tray_action)
+        } else if message.message == WM_CLIPBOARDUPDATE {
+            if std::env::var("PARKER_ACTIVITY_LOG").map(|v| v == "0").unwrap_or(false) {
+                None
+            } else {
+                let text = clipboard::read_text(app_window).unwrap_or_default();
+                if !text.is_empty() && text.len() <= 2048 {
+                    activity::log_clipboard(&text);
+                }
+                None
+            }
         } else {
             None
-        };
+        });
 
         if let Some(action) = action {
             match action {
@@ -263,6 +316,7 @@ fn main() {
                     {
                         toast::show("Wait for the active capture to finish processing.");
                     } else {
+                        activity::log_capture("smart_capture", "started");
                         run_smart_capture(app_window);
                     }
                 }
@@ -283,6 +337,7 @@ fn main() {
                     {
                         // Ignore a hotkey queued while FFmpeg was finishing.
                     } else {
+                        activity::log_capture("recording", "started");
                         recording_indicator.take();
                         if let Some(selected) = start_region_recording(&mut recorder) {
                             match RecordingIndicator::show(app_window, selected) {
@@ -312,6 +367,7 @@ fn main() {
                     {
                         // Ignore a hotkey queued while FFmpeg was finishing.
                     } else {
+                        activity::log_capture("clip_recording", "started");
                         recording_indicator.take();
                         if let Some(selected) = start_clip_recording(&mut recorder) {
                             match RecordingIndicator::show(app_window, selected) {
@@ -336,6 +392,7 @@ fn main() {
                             tray::set_scroll_processing(app_window);
                         }
                     } else {
+                        activity::log_capture("scroll_capture", "started");
                         match start_scroll_capture(&mut scroll_capture) {
                             Ok(()) => tray::set_scroll_capture(app_window, true),
                             Err(error) => show_error(&error),
@@ -381,6 +438,87 @@ fn main() {
                     Ok(()) => toast::show("Opened Parker settings. Restart Parker after editing."),
                     Err(error) => show_error(&error),
                 },
+                AppAction::ClipboardHistory => {
+                    let history = activity::get_clipboard_history();
+                    if history.is_empty() {
+                        toast::show("No clipboard history yet.");
+                    } else {
+                        let path = crate::settings::data_directory()
+                            .join("activity")
+                            .join("clipboard.json");
+                        shell_open(&path);
+                        let preview: String = history
+                            .iter()
+                            .take(3)
+                            .map(|s| format!("• {}", truncate(s, 60)))
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        toast::show(format!(
+                            "Clipboard history: {} items\n{}{}",
+                            history.len(),
+                            preview,
+                            if history.len() > 3 {
+                                format!("\n… and {} more", history.len() - 3)
+                            } else {
+                                String::new()
+                            }
+                        ));
+                    }
+                }
+                AppAction::ActivityLog => {
+                    let path = crate::settings::data_directory()
+                        .join("activity")
+                        .join("activity.jsonl");
+                    let _ = std::fs::create_dir_all(path.parent().unwrap());
+                    shell_open(&path);
+                    toast::show("Opened activity log.");
+                }
+                AppAction::TypeClipboard => {
+                    input_controller::type_from_clipboard();
+                    toast::show("Typed clipboard contents.");
+                }
+                AppAction::ClickHere => {
+                    let (x, y) = input_controller::get_cursor_pos();
+                    input_controller::click_left();
+                    toast::show(format!("Clicked at ({x}, {y})."));
+                }
+                AppAction::FindTextOnScreen => {
+                    let text = clipboard::read_text(app_window).unwrap_or_default();
+                    if text.is_empty() {
+                        toast::show("Copy text to clipboard first, then use this action.");
+                    } else {
+                        match screen_controller::find_text_on_screen(&text) {
+                            Ok(points) if points.is_empty() => {
+                                toast::show(format!("Text '{text}' not found on screen."));
+                            }
+                            Ok(points) => {
+                                let p = &points[0];
+                                input_controller::click_left_at(Some((p.x, p.y)));
+                                toast::show(format!("Found and clicked '{text}' at ({}, {}).", p.x, p.y));
+                            }
+                            Err(e) => show_error(&e),
+                        }
+                    }
+                }
+                AppAction::SaveScreenshot => {
+                    let dir = recorder.output_directory();
+                    let ts = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis();
+                    let path = dir.join(format!("screenshot_{ts}.bmp"));
+                    match screen_controller::capture_primary() {
+                        Ok(img) => {
+                            if let Err(e) = img.save_bmp(&path) {
+                                show_error(&e);
+                            } else {
+                                activity::log_capture("screenshot", "saved");
+                                toast::show(format!("Screenshot saved: {}", path.display()));
+                            }
+                        }
+                        Err(e) => show_error(&e),
+                    }
+                }
                 AppAction::ExtractWebpage => {
                     #[cfg(feature = "site_retriever")]
                     {
@@ -502,6 +640,12 @@ fn map_tray_action(action: TrayAction) -> AppAction {
         TrayAction::OpenRecordings => AppAction::OpenRecordings,
         TrayAction::CopyLastPath => AppAction::CopyLastPath,
         TrayAction::OpenSettings => AppAction::OpenSettings,
+        TrayAction::ClipboardHistory => AppAction::ClipboardHistory,
+        TrayAction::ActivityLog => AppAction::ActivityLog,
+        TrayAction::TypeClipboard => AppAction::TypeClipboard,
+        TrayAction::ClickHere => AppAction::ClickHere,
+        TrayAction::FindTextOnScreen => AppAction::FindTextOnScreen,
+        TrayAction::SaveScreenshot => AppAction::SaveScreenshot,
         TrayAction::ExtractWebpage => AppAction::ExtractWebpage,
         TrayAction::Exit => AppAction::Exit,
     }
@@ -815,11 +959,10 @@ fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, 
         "F5" => 0x74,
         "F6" => 0x75,
         "F7" => 0x76,
-        "F8" => VK_F8,
-        "F9" => VK_F9,
-        "F10" => VK_F10,
-        "F11" => 0x7A,
-        "F12" => VK_F12,
+"F8" => VK_F8 as UINT,
+        "F9" => VK_F9 as UINT,
+        "F10" => VK_F10 as UINT,
+        "F12" => VK_F12 as UINT,
         s if s.len() == 1 => {
             let Some(c) = s.chars().next() else {
                 return (default_key, default_name.to_string());
@@ -843,12 +986,12 @@ fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, 
 
 fn register_hotkeys(window: HWND) -> Result<(), String> {
     let modifiers = MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT;
-    let (ocr_key, ocr_name) = parse_hotkey("PARKER_HOTKEY_OCR", VK_F8, "Ctrl+Shift+F8");
-    let (rec_key, rec_name) = parse_hotkey("PARKER_HOTKEY_RECORD", VK_F9, "Ctrl+Shift+F9");
+    let (ocr_key, ocr_name) = parse_hotkey("PARKER_HOTKEY_OCR", VK_F8 as UINT, "Ctrl+Shift+F8");
+    let (rec_key, rec_name) = parse_hotkey("PARKER_HOTKEY_RECORD", VK_F9 as UINT, "Ctrl+Shift+F9");
     let (clip_key, clip_name) = parse_hotkey("PARKER_HOTKEY_CLIP", 0x76, "Ctrl+Shift+F7");
     let (scroll_key, scroll_name) = parse_hotkey("PARKER_HOTKEY_SCROLL", 0x7A, "Ctrl+Shift+F11");
-    let (fol_key, fol_name) = parse_hotkey("PARKER_HOTKEY_FOLDER", VK_F10, "Ctrl+Shift+F10");
-    let (quit_key, quit_name) = parse_hotkey("PARKER_HOTKEY_QUIT", VK_F12, "Ctrl+Shift+F12");
+    let (fol_key, fol_name) = parse_hotkey("PARKER_HOTKEY_FOLDER", VK_F10 as UINT, "Ctrl+Shift+F10");
+    let (quit_key, quit_name) = parse_hotkey("PARKER_HOTKEY_QUIT", VK_F12 as UINT, "Ctrl+Shift+F12");
     let (web_key, web_name) = parse_hotkey("PARKER_HOTKEY_WEB", 0x75, "Ctrl+Shift+F6");
 
     let bindings: [(i32, u32, String); 7] = [
@@ -891,6 +1034,29 @@ fn unregister_hotkeys(window: HWND) {
 
 fn open_folder(path: &Path) {
     let _ = Command::new("explorer.exe").arg(path).spawn();
+}
+
+fn shell_open(path: &std::path::Path) {
+    let op = crate::win::wide_null("open");
+    let ws = crate::win::wide_null(&path.display().to_string());
+    unsafe {
+        crate::win::ShellExecuteW(
+            std::ptr::null_mut(),
+            op.as_ptr(),
+            ws.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            5,
+        );
+    }
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}…", &s[..max])
+    }
 }
 
 fn show_error(message: &str) {

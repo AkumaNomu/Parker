@@ -9,13 +9,10 @@ $staging = Join-Path $releaseDir "parker-$version-windows-x64"
 $archive = Join-Path $releaseDir "parker-$version-windows-x64.zip"
 $portable = Join-Path $releaseDir "parker-$version-windows-x64.exe"
 $installer = Join-Path $releaseDir "parker-setup-$version-windows-x64.exe"
-$sed = Join-Path $releaseDir "parker-setup-$version.sed"
 
 Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $archive -Force -ErrorAction SilentlyContinue
 Remove-Item $portable -Force -ErrorAction SilentlyContinue
-Remove-Item $installer -Force -ErrorAction SilentlyContinue
-Remove-Item $sed -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $staging | Out-Null
 
 Copy-Item "dist\parker.exe" $staging
@@ -26,84 +23,30 @@ Copy-Item "install.ps1" $staging
 Copy-Item "uninstall.ps1" $staging
 Copy-Item "setup.cmd" $staging
 Copy-Item "settings.env.example" $staging
+Copy-Item "scripts\install-ffmpeg.ps1" (Join-Path $staging "scripts\install-ffmpeg.ps1")
 $version | Set-Content -Path (Join-Path $staging "version.txt") -Encoding ASCII
 
 Compress-Archive -Path "$staging\*" -DestinationPath $archive -Force
 
-$sourceDir = "$staging\"
-$installerPath = $installer
-$sourcePath = $sourceDir
-$sedContent = @"
-[Version]
-Class=IEXPRESS
-SEDVersion=3
-
-[Options]
-PackagePurpose=InstallApp
-ShowInstallProgramWindow=1
-HideExtractAnimation=0
-UseLongFileName=1
-InsideCompressed=0
-CAB_FixedSize=0
-CAB_ResvCodeSigning=0
-RebootMode=N
-InstallPrompt=
-DisplayLicense=
-FinishMessage=
-TargetName=$installerPath
-FriendlyName=Parker $version Setup
-AppLaunched=setup.cmd
-PostInstallCmd=<None>
-AdminQuietInstCmd=setup.cmd
-UserQuietInstCmd=setup.cmd
-SourceFiles=SourceFiles
-
-[SourceFiles]
-SourceFiles0=$sourcePath
-
-[SourceFiles0]
-%FILE0%=
-%FILE1%=
-%FILE2%=
-%FILE3%=
-%FILE4%=
-%FILE5%=
-%FILE6%=
-%FILE7%=
-
-[Strings]
-FILE0="parker.exe"
-FILE1="README.md"
-FILE2="LICENSE"
-FILE3="install.ps1"
-FILE4="uninstall.ps1"
-FILE5="setup.cmd"
-FILE6="settings.env.example"
-FILE7="version.txt"
-"@
-$sedContent | Set-Content -Path $sed -Encoding ASCII
-$sedArgument = Resolve-Path -Relative $sed
-& "$env:SystemRoot\System32\iexpress.exe" /N /Q $sedArgument
-$lastLength = -1
-$stableSamples = 0
-for ($attempt = 0; $attempt -lt 240 -and $stableSamples -lt 8; $attempt++) {
-    if (Test-Path $installer) {
-        $length = (Get-Item $installer).Length
-        if ($length -gt 0 -and $length -eq $lastLength) {
-            $stableSamples++
-        } else {
-            $stableSamples = 0
-            $lastLength = $length
-        }
+# Build GUI installer with Inno Setup
+$iscc = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
+if (-not $iscc) {
+    $isccPath = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+    if (-not (Test-Path $isccPath)) {
+        throw "Inno Setup 6 (ISCC.exe) not found. Install with: winget install --id JRSoftware.InnoSetup --exact"
     }
-    Start-Sleep -Milliseconds 250
+    $iscc = $isccPath
+} else {
+    $iscc = $iscc.Source
 }
-if (-not (Test-Path $installer) -or $stableSamples -lt 8) {
-    throw "IExpress could not create $installer"
+
+Write-Host "Building GUI installer with Inno Setup..."
+& $iscc /Q "scripts\setup.iss"
+if ($LASTEXITCODE -ne 0) {
+    throw "Inno Setup compilation failed with exit code $LASTEXITCODE"
 }
 
 Remove-Item $staging -Recurse -Force
-Remove-Item $sed -Force
 
 foreach ($asset in @($archive, $portable, $installer)) {
     $hash = (Get-FileHash -Algorithm SHA256 $asset).Hash.ToLowerInvariant()
