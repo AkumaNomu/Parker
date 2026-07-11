@@ -187,7 +187,7 @@ editing.
 
 | Key | Default | Notes |
 |---|---|---|
-| `PARKER_OCR_LANG` | `eng` | Tesseract language, e.g. `eng+fra` |
+| `PARKER_OCR_LANG` | `eng` | Tesseract language, e.g. `eng+fra`, `eng+ara` |
 | `PARKER_OCR_PSM` | `6` | Page-segmentation mode, `0`–`13` |
 | `PARKER_OCR_MODE` | `auto` | `auto`, `text`, `code`, or `table` |
 | `PARKER_QR_AUTO_OPEN` | `1` | `0` to copy QR URLs without opening |

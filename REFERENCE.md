@@ -202,7 +202,7 @@ Maps printable ASCII to `(vk, scan_code, shift_needed)` for accurate keyboard si
 ## All Environment Variables
 
 ### OCR
-- `PARKER_OCR_LANG` — Tesseract language (default: `eng`)
+- `PARKER_OCR_LANG` — Tesseract language (default: `eng`). Supports any installed language: `ara`, `fra`, `eng+ara`, etc.
 - `PARKER_OCR_PSM` — Tesseract page segmentation mode (default: `6`)
 - `PARKER_OCR_MODE` — `auto`, `text`, `code`, `table` (default: `auto`)
 - `PARKER_OCR_PREPROCESS` — `1` to enable contrast+sharpen preprocessing

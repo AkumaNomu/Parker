@@ -105,6 +105,8 @@ PARKER_OCR_MODE=auto
 PARKER_QR_AUTO_OPEN=1
 PARKER_KEEP_OCR_CAPTURE=0
 
+# OCR languages: eng, ara, eng+ara, eng+fra, etc. (install Tesseract language packs)
+
 PARKER_RECORD_FPS=30
 PARKER_COMPRESSION=balanced
 PARKER_VIDEO_ENCODER=auto
@@ -151,6 +153,19 @@ if (-not $SkipDependencies) {
         }
         if (-not $tesseract) {
             Write-Warning "Tesseract was not installed. QR detection and recording work, but text/code/table OCR needs Tesseract."
+        }
+    }
+
+    if ($tesseract) {
+        $tessdata = Join-Path (Split-Path $tesseract) "tessdata"
+        $araData = Join-Path $tessdata "ara.traineddata"
+        if (-not (Test-Path $araData)) {
+            Write-Step "Downloading Arabic language data for Tesseract..."
+            try {
+                Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata_fast/raw/main/ara.traineddata" -OutFile $araData
+            } catch {
+                Write-Warning "Arabic language data download failed. You can install it manually: see docs/GUIDE.md."
+            }
         }
     }
 }

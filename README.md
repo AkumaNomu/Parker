@@ -156,7 +156,7 @@ Parker next starts. Process-level environment variables take precedence.
 | `PARKER_OUTPUT` | `%USERPROFILE%\Videos\Parker` | Final video directory. |
 | `PARKER_FFMPEG` | Auto-detected | Explicit `ffmpeg.exe` path. |
 | `PARKER_TESSERACT` | Auto-detected | Explicit `tesseract.exe` path. |
-| `PARKER_OCR_LANG` | `eng` | Tesseract language, such as `eng+fra`. |
+| `PARKER_OCR_LANG` | `eng` | Tesseract language, such as `eng+fra` or `eng+ara`. |
 | `PARKER_OCR_PSM` | `6` | Tesseract page-segmentation mode, `0`–`13`. |
 | `PARKER_OCR_MODE` | `auto` | `auto`, `text`, `code`, or `table`. |
 | `PARKER_QR_AUTO_OPEN` | `1` | Set to `0` to copy QR URLs without opening them. |

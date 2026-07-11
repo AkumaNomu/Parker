@@ -87,6 +87,7 @@ Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDi
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: postinstall nowait skipifsilent unchecked; Components: core
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""& '{app}\scripts\install-ffmpeg.ps1'"""; Flags: runhidden; Components: ffmpeg; StatusMsg: "Installing FFmpeg runtime..."
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ winget install --id tesseract-ocr.tesseract --exact --silent --accept-package-agreements --accept-source-agreements 2>$null }} catch {{}}"""; Flags: runhidden; Components: ocr; StatusMsg: "Installing Tesseract OCR..."
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$t = Get-Command tesseract.exe -ErrorAction SilentlyContinue; if ($t) {{ $td = Join-Path (Split-Path $t.Source) 'tessdata'; $ar = Join-Path $td 'ara.traineddata'; if (-not (Test-Path $ar)) {{ try {{ Invoke-WebRequest -Uri 'https://github.com/tesseract-ocr/tessdata_fast/raw/main/ara.traineddata' -OutFile $ar -ErrorAction Stop }} catch {{}} }} }}"""; Flags: runhidden; Components: ocr; StatusMsg: "Downloading Arabic language data..."
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\uninstall.ps1"""; Flags: runhidden; RunOnceId: "UninstallParker"
@@ -116,6 +117,7 @@ begin
         '# Lines use KEY=VALUE. Restart Parker after editing.' + #13#10 +
         '' + #13#10 +
         '# --- OCR ---' + #13#10 +
+        '# Supported: eng, ara, eng+ara, eng+fra, etc.' + #13#10 +
         'PARKER_OCR_LANG=eng' + #13#10 +
         'PARKER_OCR_PSM=6' + #13#10 +
         'PARKER_OCR_MODE=auto' + #13#10 +

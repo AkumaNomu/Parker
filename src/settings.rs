@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS: &str = r#"# Parker settings
 # Lines use KEY=VALUE. Restart Parker after editing.
 
 # Smart capture
+# Supported: eng, ara, eng+ara, eng+fra, etc. (install Tesseract language packs)
 PARKER_OCR_LANG=eng
 PARKER_OCR_PSM=6
 PARKER_OCR_MODE=auto
