@@ -2,6 +2,20 @@
 
 All notable changes to Parker are documented here.
 
+## [0.6.0] - 2026-07-13
+
+### Added
+
+- Arabic OCR support with automatic Tesseract language pack installation.
+- Smart capture now captures the screen instantly and shows the screenshot as
+  the region selector background, preserving all hover states from the
+  foreground application.
+
+### Changed
+
+- Smart capture no longer re-captures the screen after region selection; the
+  pre-captured snapshot is cropped directly.
+
 ## [0.4.0] - 2026-06-15
 
 ### Added

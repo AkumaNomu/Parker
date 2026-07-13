@@ -8,7 +8,7 @@
 
 #define FileHandle
 #define FileLine
-#define MyAppVersion "0.4.0"
+#define MyAppVersion "0.6.0"
 #ifndef MyAppVersion
   #expr ParseVersion("..\dist\parker.exe", MyAppVersion, \)
 #endif
