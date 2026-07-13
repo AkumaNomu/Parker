@@ -415,6 +415,21 @@ extern "system" {
         info: *mut BITMAPINFO,
         usage: UINT,
     ) -> INT;
+    pub fn StretchDIBits(
+        hdc: HDC,
+        xDest: INT,
+        yDest: INT,
+        destWidth: INT,
+        destHeight: INT,
+        xSrc: INT,
+        ySrc: INT,
+        srcWidth: INT,
+        srcHeight: INT,
+        bits: *const c_void,
+        info: *const BITMAPINFO,
+        usage: UINT,
+        rop: DWORD,
+    ) -> INT;
 }
 
 #[link(name = "kernel32")]

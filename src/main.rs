@@ -653,8 +653,20 @@ fn map_tray_action(action: TrayAction) -> AppAction {
 
 fn run_smart_capture(clipboard_owner: HWND) {
     signals::selection_started();
-    let selected = match selector::select_region(
+
+    let full_screen = match screenshot::capture_virtual_screen() {
+        Ok(image) => image,
+        Err(error) => {
+            show_error(&error);
+            return;
+        }
+    };
+
+    let selected = match selector::select_region_with_background(
         "Select a QR code, table, code block, or text. Esc/right-click cancels.",
+        full_screen.width,
+        full_screen.height,
+        full_screen.pixels.clone(),
     ) {
         Ok(Some(rect)) => rect,
         Ok(None) => {
@@ -667,7 +679,6 @@ fn run_smart_capture(clipboard_owner: HWND) {
         }
     };
 
-    thread::sleep(Duration::from_millis(100));
     toast::show("Analyzing capture…");
     let capture = match ocr::create_capture_path() {
         Ok(capture) => capture,
@@ -677,7 +688,11 @@ fn run_smart_capture(clipboard_owner: HWND) {
         }
     };
 
-    let result = screenshot::capture_region_to_bmp(selected, &capture.path)
+    let result = screenshot::crop_image(&full_screen, selected)
+        .and_then(|cropped| {
+            cropped.save_bmp(&capture.path)?;
+            Ok(())
+        })
         .and_then(|_| process_smart_capture(&capture.path, clipboard_owner));
 
     if capture.temporary {

@@ -10,6 +10,13 @@ pub struct ScreenRect {
     pub height: i32,
 }
 
+#[derive(Clone)]
+struct BackgroundData {
+    width: i32,
+    height: i32,
+    pixels: Vec<u8>,
+}
+
 #[derive(Default)]
 struct SelectionState {
     start: POINT,
@@ -20,6 +27,7 @@ struct SelectionState {
     virtual_x: i32,
     virtual_y: i32,
     prompt: String,
+    background: Option<BackgroundData>,
 }
 
 static STATE: OnceLock<Mutex<SelectionState>> = OnceLock::new();
@@ -30,6 +38,29 @@ fn state() -> &'static Mutex<SelectionState> {
 }
 
 pub fn select_region(prompt: &str) -> Result<Option<ScreenRect>, String> {
+    select_region_inner(prompt, None)
+}
+
+pub fn select_region_with_background(
+    prompt: &str,
+    bg_width: i32,
+    bg_height: i32,
+    bg_pixels: Vec<u8>,
+) -> Result<Option<ScreenRect>, String> {
+    select_region_inner(
+        prompt,
+        Some(BackgroundData {
+            width: bg_width,
+            height: bg_height,
+            pixels: bg_pixels,
+        }),
+    )
+}
+
+fn select_region_inner(
+    prompt: &str,
+    background: Option<BackgroundData>,
+) -> Result<Option<ScreenRect>, String> {
     ensure_window_class()?;
 
     let virtual_x = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
@@ -49,6 +80,7 @@ pub fn select_region(prompt: &str) -> Result<Option<ScreenRect>, String> {
             virtual_x,
             virtual_y,
             prompt: prompt.to_string(),
+            background,
             ..SelectionState::default()
         };
     }
@@ -77,8 +109,17 @@ pub fn select_region(prompt: &str) -> Result<Option<ScreenRect>, String> {
         return Err("Could not create the region selector.".to_string());
     }
 
+    let has_bg = state()
+        .lock()
+        .map(|s| s.background.is_some())
+        .unwrap_or(false);
+
     unsafe {
-        SetLayeredWindowAttributes(window, 0, 145, LWA_ALPHA);
+        if has_bg {
+            SetLayeredWindowAttributes(window, 0, 255, LWA_ALPHA);
+        } else {
+            SetLayeredWindowAttributes(window, 0, 145, LWA_ALPHA);
+        }
         ShowWindow(window, SW_SHOW);
         UpdateWindow(window);
         SetForegroundWindow(window);
@@ -235,7 +276,49 @@ unsafe fn paint_selector(window: HWND) {
 
     let mut client = RECT::default();
     GetClientRect(window, &mut client);
-    FillRect(device, &client, GetStockObject(BLACK_BRUSH) as HBRUSH);
+
+    let has_bg = state()
+        .lock()
+        .map(|s| s.background.is_some())
+        .unwrap_or(false);
+
+    if has_bg {
+        if let Ok(selection) = state().lock() {
+            if let Some(ref bg) = selection.background {
+                let info = BITMAPINFO {
+                    bmiHeader: BITMAPINFOHEADER {
+                        biSize: size_of::<BITMAPINFOHEADER>() as u32,
+                        biWidth: bg.width,
+                        biHeight: -bg.height,
+                        biPlanes: 1,
+                        biBitCount: 32,
+                        biCompression: BI_RGB,
+                        biSizeImage: (bg.pixels.len() as u32),
+                        ..BITMAPINFOHEADER::default()
+                    },
+                    bmiColors: [RGBQUAD::default(); 1],
+                };
+                StretchDIBits(
+                    device,
+                    0,
+                    0,
+                    client.right,
+                    client.bottom,
+                    0,
+                    0,
+                    bg.width,
+                    bg.height,
+                    bg.pixels.as_ptr() as *const _,
+                    &info,
+                    DIB_RGB_COLORS,
+                    SRCCOPY,
+                );
+            }
+        }
+    } else {
+        FillRect(device, &client, GetStockObject(BLACK_BRUSH) as HBRUSH);
+    }
+
     SetBkMode(device, TRANSPARENT);
     SetTextColor(device, rgb(255, 255, 255));
 
