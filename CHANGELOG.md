@@ -2,6 +2,15 @@
 
 All notable changes to Parker are documented here.
 
+## [0.6.1] - 2026-07-29
+
+### Added
+
+- Fedora Linux Wayland commands for region OCR, QR actions, recording,
+  conversion, clipboard copy, settings, recordings, batch recovery, and update.
+- Fedora installer, desktop actions, Linux CI, and Linux release tarball with
+  SHA-256 checksum.
+
 ## [0.4.3] - 2026-06-23
 
 ### Added

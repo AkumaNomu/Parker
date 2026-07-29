@@ -38,3 +38,15 @@ jobs:
           name: parker-windows-x64
           path: target/release/parker.exe
           if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.0
+
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+
+      - name: Run Linux checks
+        run: ./scripts/check-linux.sh

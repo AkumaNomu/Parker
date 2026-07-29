@@ -1,6 +1,6 @@
 # Parker
 
-Parker is a local, hotkey-first Windows capture utility written in Rust. It can
+Parker is a local, hotkey-first Windows and Fedora Linux capture utility written in Rust. It can
 understand a selected screen region or record one, then place the useful result
 straight onto the Windows clipboard.
 
@@ -114,6 +114,30 @@ Useful runtime commands:
 .\parker.exe --self-update   # check GitHub Releases for a newer Parker
 ```
 
+### Fedora Linux
+
+Download `parker-<version>-linux-x64.tar.gz`, extract it, then run:
+
+```bash
+./install-linux.sh
+sudo dnf install grim slurp wf-recorder ffmpeg tesseract wl-clipboard libnotify
+```
+
+Parker supports Fedora Wayland. Bind these commands in **System Settings →
+Keyboard → Shortcuts → Add Command**:
+
+| Shortcut | Command |
+|---|---|
+| `Ctrl+Shift+F8` | `parker capture` |
+| `Ctrl+Shift+F9` | `parker toggle` |
+| `Ctrl+Shift+F10` | `parker open` |
+
+`capture` selects a region, copies QR data or OCR text, and opens safe QR web
+links. `record` selects and starts a region recording; `stop` finalizes an H.264
+MP4 and copies its file URI to the Wayland clipboard. `toggle` starts or stops a
+recording. Fedora keeps global shortcuts in the desktop, because Wayland does
+not let ordinary apps register them directly.
+
 ## Build and install from source
 
 Install Rust, reopen PowerShell, then run the installer:
@@ -216,7 +240,7 @@ This checks formatting, runs Clippy and tests, and builds a release executable.
 Release builds use optimization level 3, link-time optimization, one codegen
 unit, symbol stripping, and abort-on-panic to reduce runtime and binary overhead.
 Windows CI performs the same validation. Tagged `v*` pushes generate a portable
-release ZIP.
+release ZIP. Linux CI builds the Fedora-compatible tarball.
 
 Repository layout:
 

@@ -1,13 +1,13 @@
 [package]
 name = "parker"
-version = "0.4.3"
+version = "0.6.1"
 edition = "2021"
 authors = ["Akuma Nomu"]
-description = "A Windows capture utility for smart OCR, QR actions, and region video recording"
+description = "A desktop capture utility for smart OCR, QR actions, and region video recording"
 readme = "README.md"
 license = "MIT"
-keywords = ["windows", "screen-recording", "ocr", "qrcode", "clipboard"]
-categories = ["multimedia::video", "multimedia::images", "os::windows-apis"]
+keywords = ["screen-recording", "ocr", "qrcode", "clipboard", "linux"]
+categories = ["multimedia::video", "multimedia::images"]
 publish = false
 
 [dependencies]
