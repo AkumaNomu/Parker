@@ -4,8 +4,8 @@ use crate::recording_indicator::RecordingIndicator;
 use crate::tray::TrayAction;
 use crate::win::*;
 use crate::{
-    config_ui, dashboard, ocr, recorder, recording_indicator, screenshot, selector, settings,
-    toast, tray,
+    clipboard, config_ui, dashboard, ocr, qr, recorder, recording_indicator, screenshot, selector,
+    settings, toast, tray, updater,
 };
 use std::fs;
 use std::path::Path;
