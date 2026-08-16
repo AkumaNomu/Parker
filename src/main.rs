@@ -3,6 +3,9 @@
 #[cfg(target_os = "linux")]
 mod linux;
 
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+mod translate;
+
 #[cfg(target_os = "windows")]
 mod clipboard;
 #[cfg(target_os = "windows")]

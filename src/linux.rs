@@ -43,7 +43,7 @@ fn help() -> String {
 }
 
 fn capture() -> Result<(), String> {
-    require(&["slurp", "grim", "tesseract", "wl-copy"])?;
+    require(&["tesseract", "wl-copy"])?;
     let image = capture_region()?;
     let qr = decode_qr(&image)?;
     if let Some(value) = qr {
@@ -54,11 +54,12 @@ fn capture() -> Result<(), String> {
         notify("Parker", "QR copied.");
         return Ok(());
     }
+    let language = detect_language(&image)?;
     let output = Command::new("tesseract")
         .arg(&image)
         .arg("stdout")
         .arg("-l")
-        .arg(setting("PARKER_OCR_LANG", "eng"))
+        .arg(&language)
         .arg("--psm")
         .arg(setting("PARKER_OCR_PSM", "6"))
         .output()
@@ -70,9 +71,90 @@ fn capture() -> Result<(), String> {
     if text.is_empty() {
         return Err("No text or QR code found.".into());
     }
-    copy_text(&text)?;
-    notify("Parker", "OCR text copied.");
+
+    match crate::translate::translate(&text, &language) {
+        Ok(Some(translated)) => {
+            let result = match crate::translate::translate_output_mode().as_str() {
+                "translation" => translated.clone(),
+                "both" => format!("{text}\n\n{translated}"),
+                _ => text.clone(),
+            };
+            copy_text(&result)?;
+            let preview = crate::translate::preview(&translated, 220);
+            notify(
+                "Parker",
+                &format!(
+                    "OCR text {} copied. Translated: {preview}",
+                    language_name(&language)
+                ),
+            );
+        }
+        Ok(None) => {
+            copy_text(&text)?;
+            notify("Parker", "OCR text copied.");
+        }
+        Err(error) => {
+            copy_text(&text)?;
+            notify(
+                "Parker",
+                &format!("OCR text copied, but translation failed: {error}"),
+            );
+        }
+    }
     Ok(())
+}
+
+fn detect_language(image: &Path) -> Result<String, String> {
+    let configured = setting("PARKER_OCR_LANG", "eng");
+    if !crate::translate::lang_auto_enabled() {
+        return Ok(configured);
+    }
+    crate::translate::detect_language("tesseract", image, &configured)
+}
+
+fn language_name(language: &str) -> &str {
+    match language {
+        "afr" => "Afrikaans",
+        "ara" => "Arabic",
+        "aze" => "Azerbaijani",
+        "bel" => "Belarusian",
+        "bul" => "Bulgarian",
+        "cat" => "Catalan",
+        "ces" => "Czech",
+        "chi_sim" => "Chinese (Simplified)",
+        "chi_tra" => "Chinese (Traditional)",
+        "dan" => "Danish",
+        "deu" => "German",
+        "ell" => "Greek",
+        "eng" => "English",
+        "fin" => "Finnish",
+        "fra" => "French",
+        "heb" => "Hebrew",
+        "hin" => "Hindi",
+        "hun" => "Hungarian",
+        "ind" => "Indonesian",
+        "ita" => "Italian",
+        "jpn" => "Japanese",
+        "kor" => "Korean",
+        "mkd" => "Macedonian",
+        "msa" => "Malay",
+        "nld" => "Dutch",
+        "nor" => "Norwegian",
+        "pol" => "Polish",
+        "por" => "Portuguese",
+        "ron" => "Romanian",
+        "rus" => "Russian",
+        "slk" => "Slovak",
+        "slv" => "Slovenian",
+        "spa" => "Spanish",
+        "srp" => "Serbian",
+        "swe" => "Swedish",
+        "tha" => "Thai",
+        "tur" => "Turkish",
+        "ukr" => "Ukrainian",
+        "vie" => "Vietnamese",
+        _ => language,
+    }
 }
 
 fn start_recording() -> Result<(), String> {
@@ -179,13 +261,21 @@ fn finalize(source: &Path) -> Result<(), String> {
 }
 
 fn capture_region() -> Result<PathBuf, String> {
-    let region = select_region()?;
     let path = env::temp_dir().join(format!("parker-{}.png", stamp()));
-    let status = Command::new("grim")
-        .args(["-g", &region])
-        .arg(&path)
-        .status()
-        .map_err(|e| format!("Could not run grim: {e}"))?;
+    let status = if available("grim") && available("slurp") {
+        let region = select_region()?;
+        Command::new("grim")
+            .args(["-g", &region])
+            .arg(&path)
+            .status()
+            .map_err(|e| format!("Could not run grim: {e}"))?
+    } else {
+        Command::new("spectacle")
+            .args(["--region", "--background", "--nonotify", "--output"])
+            .arg(&path)
+            .status()
+            .map_err(|e| format!("Could not run Spectacle: {e}"))?
+    };
     if !status.success() {
         return Err("Screen capture failed. Check Wayland screencopy permission.".into());
     }
@@ -281,7 +371,7 @@ fn open_recordings() -> Result<(), String> {
 fn open_settings() -> Result<(), String> {
     let path = settings_path()?;
     if !path.exists() {
-        fs::write(&path, "PARKER_OCR_LANG=eng\nPARKER_OCR_PSM=6\nPARKER_POST_CRF=24\nPARKER_POST_PRESET=medium\n").map_err(|e| format!("Could not create settings: {e}"))?;
+        fs::write(&path, "PARKER_OCR_LANG_AUTO=1\nPARKER_OCR_LANG=eng\nPARKER_OCR_PSM=6\nPARKER_TRANSLATE_BACKEND=none\nPARKER_TRANSLATE_TARGET=en\nPARKER_TRANSLATE_OUTPUT=original\nPARKER_POST_CRF=24\nPARKER_POST_PRESET=medium\n").map_err(|e| format!("Could not create settings: {e}"))?;
     }
     Command::new("xdg-open")
         .arg(path)
@@ -357,19 +447,21 @@ fn recording_state() -> Option<(String, PathBuf)> {
 }
 fn require(programs: &[&str]) -> Result<(), String> {
     for program in programs {
-        if Command::new("sh")
-            .args(["-c", &format!("command -v {program}")])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .map_or(true, |s| !s.success())
-        {
+        if !available(program) {
             return Err(format!(
                 "Missing {program}. Install Fedora runtime: sudo dnf install grim slurp wf-recorder ffmpeg tesseract wl-clipboard libnotify"
             ));
         }
     }
     Ok(())
+}
+fn available(program: &str) -> bool {
+    Command::new("sh")
+        .args(["-c", &format!("command -v {program}")])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
 }
 fn notify(title: &str, body: &str) {
     let _ = Command::new("notify-send").args([title, body]).spawn();

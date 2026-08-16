@@ -1255,6 +1255,7 @@ dependencies = [
  "inquire",
  "rqrr",
  "self_update",
+ "serde_json",
 ]
 
 [[package]]

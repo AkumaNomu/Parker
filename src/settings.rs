@@ -10,11 +10,18 @@ const DEFAULT_SETTINGS: &str = r#"# Parker settings
 # Lines use KEY=VALUE. Restart Parker after editing.
 
 # Smart capture
+PARKER_OCR_LANG_AUTO=1
 PARKER_OCR_LANG=eng
 PARKER_OCR_PSM=6
 PARKER_OCR_MODE=auto
 PARKER_QR_AUTO_OPEN=1
 PARKER_KEEP_OCR_CAPTURE=0
+
+# Translation (optional)
+# PARKER_TRANSLATE_BACKEND=none
+# PARKER_TRANSLATE_TARGET=en
+# PARKER_TRANSLATE_OUTPUT=original
+# PARKER_TRANSLATE_ENDPOINT=http://localhost:5000
 
 # Recording
 PARKER_RECORD_FPS=30

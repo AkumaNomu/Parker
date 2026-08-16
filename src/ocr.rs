@@ -22,6 +22,7 @@ pub enum OcrKind {
 pub struct OcrResult {
     pub kind: OcrKind,
     pub text: String,
+    pub language: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -91,34 +92,38 @@ pub fn create_capture_path() -> Result<OcrCapturePath, String> {
 
 pub fn recognize_smart(path: &Path) -> Result<OcrResult, String> {
     let mode = configured_mode()?;
+    let language = resolved_language(path)?;
 
     match mode {
         OcrMode::Text => {
-            let plain = clean_text(&run_tesseract(path, false)?);
+            let plain = clean_text(&run_tesseract(path, false, &language)?);
             if plain.is_empty() {
                 return Err("No text was detected in the selected region.".to_string());
             }
             Ok(OcrResult {
                 kind: OcrKind::Text,
                 text: plain,
+                language: language.clone(),
             })
         }
         OcrMode::Code => {
-            let plain = clean_text(&run_tesseract(path, false)?);
+            let plain = clean_text(&run_tesseract(path, false, &language)?);
             if plain.is_empty() {
                 return Err("No code text was detected in the selected region.".to_string());
             }
             Ok(OcrResult {
                 kind: OcrKind::Code,
                 text: normalize_code(&plain),
+                language,
             })
         }
         OcrMode::Table => {
-            let tsv = run_tesseract(path, true)?;
+            let tsv = run_tesseract(path, true, &language)?;
             extract_table(&tsv)
                 .map(|text| OcrResult {
                     kind: OcrKind::Table,
                     text,
+                    language: language.clone(),
                 })
                 .ok_or_else(|| {
                     "The selected region did not contain a consistently aligned table.".to_string()
@@ -128,11 +133,12 @@ pub fn recognize_smart(path: &Path) -> Result<OcrResult, String> {
             // Automatic mode uses a single Tesseract process. TSV provides both
             // word geometry for table inference and enough layout data to
             // rebuild normal/code text without running OCR twice.
-            let tsv = run_tesseract(path, true)?;
+            let tsv = run_tesseract(path, true, &language)?;
             if let Some(table) = extract_table(&tsv) {
                 return Ok(OcrResult {
                     kind: OcrKind::Table,
                     text: table,
+                    language: language.clone(),
                 });
             }
 
@@ -148,23 +154,36 @@ pub fn recognize_smart(path: &Path) -> Result<OcrResult, String> {
                 Ok(OcrResult {
                     kind: OcrKind::Code,
                     text: normalize_code(&plain),
+                    language,
                 })
             } else {
                 Ok(OcrResult {
                     kind: OcrKind::Text,
                     text: plain,
+                    language,
                 })
             }
         }
     }
 }
 
-fn run_tesseract(path: &Path, tsv: bool) -> Result<String, String> {
+fn resolved_language(path: &Path) -> Result<String, String> {
+    let configured = env::var("PARKER_OCR_LANG").unwrap_or_else(|_| "eng".to_string());
+    if !crate::translate::lang_auto_enabled() {
+        return Ok(configured);
+    }
     let tesseract = locate_tesseract().ok_or_else(|| {
         "Tesseract OCR was not found. Run install.ps1, install Tesseract with winget, or set PARKER_TESSERACT to tesseract.exe."
             .to_string()
     })?;
-    let language = env::var("PARKER_OCR_LANG").unwrap_or_else(|_| "eng".to_string());
+    crate::translate::detect_language(&tesseract.to_string_lossy(), path, &configured)
+}
+
+fn run_tesseract(path: &Path, tsv: bool, language: &str) -> Result<String, String> {
+    let tesseract = locate_tesseract().ok_or_else(|| {
+        "Tesseract OCR was not found. Run install.ps1, install Tesseract with winget, or set PARKER_TESSERACT to tesseract.exe."
+            .to_string()
+    })?;
     let psm = configured_psm()?;
 
     let mut command = Command::new(&tesseract);

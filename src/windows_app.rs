@@ -399,11 +399,42 @@ fn process_smart_capture(path: &Path, clipboard_owner: HWND) -> Result<(), Strin
     }
 
     let recognized = ocr::recognize_smart(path)?;
-    clipboard::copy_text(&recognized.text, clipboard_owner)?;
-    match recognized.kind {
-        OcrKind::Text => signal_text_copied(),
-        OcrKind::Code => signal_code_copied(),
-        OcrKind::Table => signal_table_copied(),
+
+    let translated = match crate::translate::translate(&recognized.text, &recognized.language) {
+        Ok(translated) => translated,
+        Err(error) => {
+            clipboard::copy_text(&recognized.text, clipboard_owner)?;
+            match recognized.kind {
+                OcrKind::Text => signal_text_copied_with_error(&error),
+                OcrKind::Code => signal_code_copied(),
+                OcrKind::Table => signal_table_copied(),
+            }
+            return Ok(());
+        }
+    };
+
+    match translated {
+        Some(translated) => {
+            let text = match crate::translate::translate_output_mode().as_str() {
+                "translation" => translated,
+                "both" => format!("{}\n\n{}", recognized.text, translated),
+                _ => recognized.text,
+            };
+            clipboard::copy_text(&text, clipboard_owner)?;
+            match recognized.kind {
+                OcrKind::Text => signal_text_translated(&translated),
+                OcrKind::Code => signal_code_copied(),
+                OcrKind::Table => signal_table_copied(),
+            }
+        }
+        None => {
+            clipboard::copy_text(&recognized.text, clipboard_owner)?;
+            match recognized.kind {
+                OcrKind::Text => signal_text_copied(),
+                OcrKind::Code => signal_code_copied(),
+                OcrKind::Table => signal_table_copied(),
+            }
+        }
     }
     Ok(())
 }
@@ -617,6 +648,21 @@ fn format_bytes(bytes: u64) -> String {
 
 fn signal_text_copied() {
     toast::show("Text recognized and copied.");
+    signal_success();
+}
+
+fn signal_text_copied_with_error(error: &str) {
+    toast::show(format!(
+        "Text recognized and copied, but translation failed: {error}"
+    ));
+    signal_success();
+}
+
+fn signal_text_translated(translated: &str) {
+    let preview = crate::translate::preview(translated, 220);
+    toast::show(format!(
+        "Text recognized, copied, and translated: {preview}"
+    ));
     signal_success();
 }
 
