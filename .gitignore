@@ -1,9 +1,29 @@
+# Rust build output
 /target/
 /dist/
 /release/
+
+# Local OMX tooling state
+/.omx/
+
+# Logs and debug artifacts
 *.log
 *.pdb
+*.tmp
+*.swp
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+settings.env
+
+# Editors and IDEs
 .vscode/
 .idea/
+*.suo
+*.user
+
+# OS files
 .DS_Store
 Thumbs.db

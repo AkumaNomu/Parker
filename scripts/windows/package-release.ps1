@@ -1,31 +1,29 @@
 $ErrorActionPreference = "Stop"
-Set-Location (Split-Path $PSScriptRoot -Parent)
+$root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+Set-Location $root
 
-& (Join-Path (Get-Location) "build.ps1")
+& (Join-Path $PSScriptRoot "build.ps1")
 
 $version = (Select-String -Path "Cargo.toml" -Pattern '^version\s*=\s*"([^\"]+)"').Matches[0].Groups[1].Value
 $releaseDir = Join-Path (Get-Location) "release"
 $staging = Join-Path $releaseDir "parker-$version-windows-x64"
 $archive = Join-Path $releaseDir "parker-$version-windows-x64.zip"
-$portable = Join-Path $releaseDir "parker-$version-windows-x64.exe"
 $installer = Join-Path $releaseDir "parker-setup-$version-windows-x64.exe"
 $sed = Join-Path $releaseDir "parker-setup-$version.sed"
 
 Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $archive -Force -ErrorAction SilentlyContinue
-Remove-Item $portable -Force -ErrorAction SilentlyContinue
 Remove-Item $installer -Force -ErrorAction SilentlyContinue
 Remove-Item $sed -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $staging | Out-Null
 
 Copy-Item "dist\parker.exe" $staging
-Copy-Item "dist\parker.exe" $portable
 Copy-Item "README.md" $staging
 Copy-Item "LICENSE" $staging
-Copy-Item "install.ps1" $staging
-Copy-Item "uninstall.ps1" $staging
-Copy-Item "setup.cmd" $staging
-Copy-Item "setup-gui.ps1" $staging
+Copy-Item (Join-Path $PSScriptRoot "install.ps1") $staging
+Copy-Item (Join-Path $PSScriptRoot "uninstall.ps1") $staging
+Copy-Item (Join-Path $PSScriptRoot "setup.cmd") $staging
+Copy-Item (Join-Path $PSScriptRoot "setup-gui.ps1") $staging
 Copy-Item "settings.env.example" $staging
 $version | Set-Content -Path (Join-Path $staging "version.txt") -Encoding ASCII
 
@@ -108,7 +106,7 @@ if (-not (Test-Path $installer) -or $stableSamples -lt 8) {
 Remove-Item $staging -Recurse -Force
 Remove-Item $sed -Force
 
-foreach ($asset in @($archive, $portable, $installer)) {
+foreach ($asset in @($archive, $installer)) {
     $hash = (Get-FileHash -Algorithm SHA256 $asset).Hash.ToLowerInvariant()
     $checksum = "$asset.sha256"
     "$hash  $(Split-Path $asset -Leaf)" | Set-Content -Path $checksum -Encoding ASCII

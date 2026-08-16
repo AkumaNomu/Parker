@@ -78,8 +78,8 @@ Press `Esc` or right-click to cancel a selector.
 
 Download `parker-setup-<version>-windows-x64.exe` from the latest GitHub Release
 and open it. The setup flow opens a small GUI where you can choose startup,
-dependency, and launch options. The release also includes a portable
-`parker-<version>-windows-x64.exe` and a ZIP for manual installation.
+dependency, and launch options. The release also includes a ZIP for manual
+installation.
 
 The per-user installer does not require administrator access. It:
 
@@ -145,13 +145,13 @@ Install Rust, reopen PowerShell, then run the installer:
 ```powershell
 winget install --id Rustlang.Rustup --exact
 Set-ExecutionPolicy -Scope Process Bypass
-.\install.ps1
+.\scripts\windows\install.ps1
 ```
 
 Build without installing:
 
 ```powershell
-.\build.ps1
+.\scripts\windows\build.ps1
 ```
 
 The executable is copied to `dist\parker.exe` with the Parker icon and Windows
@@ -233,26 +233,26 @@ untrusted.
 ## Development
 
 ```powershell
-.\scripts\check.ps1
+.\scripts\windows\check.ps1
 ```
 
 This checks formatting, runs Clippy and tests, and builds a release executable.
 Release builds use optimization level 3, link-time optimization, one codegen
 unit, symbol stripping, and abort-on-panic to reduce runtime and binary overhead.
-Windows CI performs the same validation. Tagged `v*` pushes generate a portable
-release ZIP. Linux CI builds the Fedora-compatible tarball.
+Windows CI performs the same validation. Tagged `v*` pushes generate a setup
+EXE and a manual-install ZIP. Linux CI builds the Fedora-compatible tarball.
 
 Repository layout:
 
 ```text
 assets/                      Application icon
 src/                         Rust application source
-scripts/                     Validation and release packaging
+scripts/windows/             Windows build, setup, validation, and release
+scripts/linux/               Linux install, validation, and release
+packaging/linux/             Linux desktop integration files
 .github/workflows/           Windows CI and releases
 docs/                        Architecture, setup, development, and roadmap
-setup.cmd                    Double-click setup entry point
-setup-gui.ps1                GUI wrapper for release setup
-install.ps1                  Source/release-aware per-user installer
+settings.env.example         Template for the per-user settings file
 ```
 
 ## Known limitations

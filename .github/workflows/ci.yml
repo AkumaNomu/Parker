@@ -49,4 +49,4 @@ jobs:
         run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
 
       - name: Run Linux checks
-        run: ./scripts/check-linux.sh
+        run: ./scripts/linux/check-linux.sh

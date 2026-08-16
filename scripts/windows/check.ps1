@@ -1,5 +1,6 @@
 $ErrorActionPreference = "Stop"
-Set-Location (Split-Path $PSScriptRoot -Parent)
+$root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+Set-Location $root
 
 cargo fmt --all -- --check
 if ($LASTEXITCODE -ne 0) { throw "cargo fmt failed with exit code $LASTEXITCODE" }

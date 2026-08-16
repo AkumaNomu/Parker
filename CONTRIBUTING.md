@@ -23,7 +23,7 @@ cargo build --release
 Run the application during development with:
 
 ```powershell
-.\run-dev.ps1
+.\scripts\windows\run-dev.ps1
 ```
 
 Global hotkeys can be registered by only one Parker process at a time. Stop an

@@ -5,7 +5,13 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-Set-Location $PSScriptRoot
+$root = $PSScriptRoot
+while (-not (Test-Path (Join-Path $root "Cargo.toml"))) {
+    $parent = Split-Path $root -Parent
+    if ($parent -eq $root) { break }
+    $root = $parent
+}
+Set-Location $root
 
 function Write-Step([string]$Message) {
     Write-Host "[Parker] $Message" -ForegroundColor Cyan
@@ -33,18 +39,18 @@ function Find-Tesseract {
 function Resolve-ParkerExecutable {
     $candidates = @(
         (Join-Path $PSScriptRoot "parker.exe"),
-        (Join-Path $PSScriptRoot "dist\parker.exe")
+        (Join-Path $root "dist\parker.exe")
     )
     $existing = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if ($existing) { return $existing }
 
-    if ((Test-Path (Join-Path $PSScriptRoot "Cargo.toml")) -and (Get-Command cargo -ErrorAction SilentlyContinue)) {
+    if ((Test-Path (Join-Path $root "Cargo.toml")) -and (Get-Command cargo -ErrorAction SilentlyContinue)) {
         Write-Step "Building the release executable from source..."
         & (Join-Path $PSScriptRoot "build.ps1")
-        return Join-Path $PSScriptRoot "dist\parker.exe"
+        return Join-Path $root "dist\parker.exe"
     }
 
-    throw "parker.exe was not found. Use a GitHub release package or install Rust and run this script from the repository root."
+    throw "parker.exe was not found. Use a GitHub release package or install Rust and run this script from the repository."
 }
 
 function Resolve-ParkerVersion {
@@ -53,7 +59,7 @@ function Resolve-ParkerVersion {
         return (Get-Content $versionFile -Raw).Trim()
     }
 
-    $cargoFile = Join-Path $PSScriptRoot "Cargo.toml"
+    $cargoFile = Join-Path $root "Cargo.toml"
     if (Test-Path $cargoFile) {
         $match = Select-String -Path $cargoFile -Pattern '^version\s*=\s*"([^\"]+)"' | Select-Object -First 1
         if ($match) { return $match.Matches[0].Groups[1].Value }
@@ -89,7 +95,11 @@ New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $installDir "logs") | Out-Null
 Copy-Item $sourceExe $installedExe -Force
 foreach ($file in @("README.md", "LICENSE", "uninstall.ps1")) {
-    $source = Join-Path $PSScriptRoot $file
+    $source = if ($file -eq "uninstall.ps1") {
+        Join-Path $PSScriptRoot $file
+    } else {
+        Join-Path $root $file
+    }
     if (Test-Path $source) { Copy-Item $source $installDir -Force }
 }
 

@@ -26,7 +26,7 @@ jobs:
           if ("v$version" -ne "${{ github.ref_name }}") { throw "Tag does not match Cargo version" }
       - name: Build Windows package
         shell: powershell
-        run: .\scripts\package-release.ps1
+        run: .\scripts\windows\package-release.ps1
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: windows-release
@@ -41,7 +41,7 @@ jobs:
       - name: Verify release tag
         run: test "v$(sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -1)" = "$GITHUB_REF_NAME"
       - name: Build Linux package
-        run: ./scripts/package-release-linux.sh
+        run: ./scripts/linux/package-release-linux.sh
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: linux-release

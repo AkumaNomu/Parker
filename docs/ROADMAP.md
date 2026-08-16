@@ -27,5 +27,5 @@
 - Windows Graphics Capture or Desktop Duplication for hardware-accelerated
   recording.
 - Per-monitor toast placement and stacked notifications.
-- Signed MSIX and portable release variants.
+- Signed MSIX release variant.
 - Automatic update checks with explicit user consent.

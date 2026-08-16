@@ -32,8 +32,9 @@ Options:
 ## First application launch
 
 Parker independently initializes its data directory and settings file. This
-means the portable executable remains usable even when it was not installed by
-the script. Process environment variables override values from `settings.env`.
+means the executable from the manual-install ZIP remains usable even when it was
+not installed by the script. Process environment variables override values from
+`settings.env`.
 
 ## Updating
 
