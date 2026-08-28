@@ -16,14 +16,16 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 const HOTKEY_OCR: i32 = 1;
-const HOTKEY_RECORD: i32 = 2;
+const HOTKEY_SHOT: i32 = 2;
 const HOTKEY_FOLDER: i32 = 3;
-const HOTKEY_QUIT: i32 = 4;
+const HOTKEY_RECORD: i32 = 4;
+const HOTKEY_QUIT: i32 = 5;
 const APP_TIMER_ID: usize = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum AppAction {
     SmartCapture,
+    Screenshot,
     ToggleRecording,
     StopRecording,
     OpenRecordings,
@@ -49,8 +51,11 @@ pub fn run() {
     // Check for self‑update flag
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--self-update") {
-        if let Err(err) = updater::check_self_update() {
-            show_error(&err);
+        match updater::check_self_update() {
+            Ok(message) => {
+                toast::show(format!("{message} Restart Parker to switch to it."));
+            }
+            Err(err) => show_error(&err),
         }
     }
     // If user runs "config" subcommand, launch terminal UI and exit
@@ -177,8 +182,9 @@ pub fn run() {
         let action = if message.message == WM_HOTKEY {
             match message.wParam as i32 {
                 HOTKEY_OCR => Some(AppAction::SmartCapture),
-                HOTKEY_RECORD => Some(AppAction::ToggleRecording),
+                HOTKEY_SHOT => Some(AppAction::Screenshot),
                 HOTKEY_FOLDER => Some(AppAction::OpenRecordings),
+                HOTKEY_RECORD => Some(AppAction::ToggleRecording),
                 HOTKEY_QUIT => Some(AppAction::Exit),
                 _ => None,
             }
@@ -186,6 +192,8 @@ pub fn run() {
             Some(AppAction::StopRecording)
         } else if message.message == dashboard::WM_DASHBOARD_SMART_CAPTURE {
             Some(AppAction::SmartCapture)
+        } else if message.message == dashboard::WM_DASHBOARD_SCREENSHOT {
+            Some(AppAction::Screenshot)
         } else if message.message == dashboard::WM_DASHBOARD_TOGGLE_RECORDING {
             Some(AppAction::ToggleRecording)
         } else if message.message == dashboard::WM_DASHBOARD_OPEN_RECORDINGS {
@@ -220,6 +228,13 @@ pub fn run() {
                         run_smart_capture(app_window);
                     }
                 }
+                AppAction::Screenshot => {
+                    if recorder.is_recording() || finalization.is_some() {
+                        toast::show("Wait for the active recording to finish processing.");
+                    } else {
+                        run_screenshot(app_window);
+                    }
+                }
                 AppAction::ToggleRecording => {
                     if finalization.is_some() {
                         toast::show("Parker is still optimizing the previous recording.");
@@ -240,7 +255,7 @@ pub fn run() {
                             match RecordingIndicator::show(app_window, selected) {
                                 Ok(indicator) => recording_indicator = Some(indicator),
                                 Err(error) => toast::show(format!(
-                                    "Recording active without on-screen control: {error} Use Ctrl+Shift+F9 to stop."
+                                    "Recording active without on-screen control: {error} Use Ctrl+Shift+F11 to stop."
                                 )),
                             }
                             tray::set_recording(app_window, true);
@@ -326,6 +341,7 @@ fn map_tray_action(action: TrayAction) -> AppAction {
     match action {
         TrayAction::OpenParker => unreachable!("OpenParker is handled before action mapping"),
         TrayAction::SmartCapture => AppAction::SmartCapture,
+        TrayAction::Screenshot => AppAction::Screenshot,
         TrayAction::ToggleRecording => AppAction::ToggleRecording,
         TrayAction::OpenRecordings => AppAction::OpenRecordings,
         TrayAction::OpenSettings => AppAction::OpenSettings,
@@ -368,6 +384,44 @@ fn run_smart_capture(clipboard_owner: HWND) {
 
     if let Err(error) = result {
         show_error(&error);
+    }
+}
+
+fn run_screenshot(clipboard_owner: HWND) {
+    signal_selection_started("Select a region to copy as image.");
+    let selected = match selector::select_region(
+        "Drag over the region to copy as image. Esc/right-click cancels.",
+    ) {
+        Ok(Some(rect)) => rect,
+        Ok(None) => {
+            signal_cancelled();
+            return;
+        }
+        Err(error) => {
+            show_error(&error);
+            return;
+        }
+    };
+
+    thread::sleep(Duration::from_millis(100));
+    let capture = match ocr::create_capture_path() {
+        Ok(capture) => capture,
+        Err(error) => {
+            show_error(&error);
+            return;
+        }
+    };
+
+    let result = screenshot::capture_region_to_bmp(selected, &capture.path)
+        .and_then(|_| clipboard::copy_image(&capture.path, clipboard_owner));
+
+    if capture.temporary {
+        let _ = fs::remove_file(&capture.path);
+    }
+
+    match result {
+        Ok(()) => signal_screenshot_copied(),
+        Err(error) => show_error(&error),
     }
 }
 
@@ -416,7 +470,7 @@ fn process_smart_capture(path: &Path, clipboard_owner: HWND) -> Result<(), Strin
     match translated {
         Some(translated) => {
             let text = match crate::translate::translate_output_mode().as_str() {
-                "translation" => translated,
+                "translation" => translated.clone(),
                 "both" => format!("{}\n\n{}", recognized.text, translated),
                 _ => recognized.text,
             };
@@ -540,14 +594,16 @@ fn parse_hotkey(env_var: &str, default_key: UINT, default_name: &str) -> (UINT, 
 fn register_hotkeys(window: HWND) -> Result<(), String> {
     let modifiers = MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT;
     let (ocr_key, ocr_name) = parse_hotkey("PARKER_HOTKEY_OCR", VK_F8, "Ctrl+Shift+F8");
-    let (rec_key, rec_name) = parse_hotkey("PARKER_HOTKEY_RECORD", VK_F9, "Ctrl+Shift+F9");
+    let (shot_key, shot_name) = parse_hotkey("PARKER_HOTKEY_SHOT", VK_F9, "Ctrl+Shift+F9");
     let (fol_key, fol_name) = parse_hotkey("PARKER_HOTKEY_FOLDER", VK_F10, "Ctrl+Shift+F10");
+    let (rec_key, rec_name) = parse_hotkey("PARKER_HOTKEY_RECORD", VK_F11, "Ctrl+Shift+F11");
     let (quit_key, quit_name) = parse_hotkey("PARKER_HOTKEY_QUIT", VK_F12, "Ctrl+Shift+F12");
 
-    let bindings: [(i32, u32, String); 4] = [
+    let bindings: [(i32, u32, String); 5] = [
         (HOTKEY_OCR, ocr_key, ocr_name),
-        (HOTKEY_RECORD, rec_key, rec_name),
+        (HOTKEY_SHOT, shot_key, shot_name),
         (HOTKEY_FOLDER, fol_key, fol_name),
+        (HOTKEY_RECORD, rec_key, rec_name),
         (HOTKEY_QUIT, quit_key, quit_name),
     ];
 
@@ -564,7 +620,13 @@ fn register_hotkeys(window: HWND) -> Result<(), String> {
 }
 
 fn unregister_hotkeys(window: HWND) {
-    for id in [HOTKEY_OCR, HOTKEY_RECORD, HOTKEY_FOLDER, HOTKEY_QUIT] {
+    for id in [
+        HOTKEY_OCR,
+        HOTKEY_SHOT,
+        HOTKEY_FOLDER,
+        HOTKEY_RECORD,
+        HOTKEY_QUIT,
+    ] {
         unsafe {
             UnregisterHotKey(window, id);
         }
@@ -591,7 +653,7 @@ fn show_error(message: &str) {
 }
 
 fn signal_ready() {
-    toast::show("Parker is ready. Ctrl+Shift+F8 captures; Ctrl+Shift+F9 records a region.");
+    toast::show("Parker is ready. Ctrl+Shift+F8 captures; Ctrl+Shift+F9 screenshots; Ctrl+Shift+F11 records.");
     unsafe {
         Beep(740, 70);
         Beep(990, 90);
@@ -606,7 +668,7 @@ fn signal_selection_started(_message: &str) {
 
 fn signal_recording_started() {
     toast::show(
-        "Recording started. Drag the timer anywhere; click its stop button or press Ctrl+Shift+F9 to finish.",
+        "Recording started. Drag the timer anywhere; click its stop button or press Ctrl+Shift+F11 to finish.",
     );
     unsafe {
         Beep(880, 80);
@@ -681,6 +743,11 @@ fn signal_qr_opened() {
     signal_success();
 }
 
+fn signal_screenshot_copied() {
+    toast::show("Screenshot copied to the clipboard.");
+    signal_success();
+}
+
 fn signal_success() {
     unsafe {
         Beep(1047, 70);
@@ -724,29 +791,7 @@ fn batch_process(dir: &Path) {
         }
     };
 
-    // Hack to get FFmpeg path since post_process needs it
-    // Wait, wait, actually we can just find it
-    let ffmpeg = match std::env::var_os("PARKER_FFMPEG")
-        .map(std::path::PathBuf::from)
-        .or_else(|| {
-            if let Ok(exe) = std::env::current_exe() {
-                if let Some(parent) = exe.parent() {
-                    let bundled = parent.join("ffmpeg.exe");
-                    if bundled.is_file() {
-                        return Some(bundled);
-                    }
-                }
-            }
-            let output = Command::new("where.exe").arg("ffmpeg.exe").output().ok()?;
-            if output.status.success() {
-                String::from_utf8_lossy(&output.stdout)
-                    .lines()
-                    .next()
-                    .map(|s| std::path::PathBuf::from(s.trim()))
-            } else {
-                None
-            }
-        }) {
+    let ffmpeg = match recorder::locate_ffmpeg() {
         Some(f) => f,
         None => {
             println!("Error: FFmpeg not found. Cannot post-process.");

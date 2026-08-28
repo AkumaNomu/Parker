@@ -6,16 +6,18 @@ pub const WM_TRAY_CALLBACK: UINT = WM_APP + 1;
 const TRAY_ICON_ID: UINT = 1;
 
 const CMD_SMART_CAPTURE: UINT = 1001;
-const CMD_RECORD: UINT = 1002;
-const CMD_OPEN_RECORDINGS: UINT = 1003;
-const CMD_OPEN_SETTINGS: UINT = 1004;
-const CMD_EXIT: UINT = 1005;
-const CMD_OPEN_PARKER: UINT = 1006;
+const CMD_SCREENSHOT: UINT = 1002;
+const CMD_RECORD: UINT = 1003;
+const CMD_OPEN_RECORDINGS: UINT = 1004;
+const CMD_OPEN_SETTINGS: UINT = 1005;
+const CMD_EXIT: UINT = 1006;
+const CMD_OPEN_PARKER: UINT = 1007;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrayAction {
     OpenParker,
     SmartCapture,
+    Screenshot,
     ToggleRecording,
     OpenRecordings,
     OpenSettings,
@@ -51,7 +53,7 @@ pub fn set_recording(window: HWND, recording: bool) {
     set_status(
         window,
         if recording {
-            "Parker — recording region (Ctrl+Shift+F9 to stop)"
+            "Parker — recording region (Ctrl+Shift+F11 to stop)"
         } else {
             "Parker — ready"
         },
@@ -96,6 +98,7 @@ fn show_menu(window: HWND, recording: bool, processing: bool) -> Option<TrayActi
         append(menu, CMD_OPEN_PARKER, "Open Parker");
         AppendMenuW(menu, MF_SEPARATOR, 0, null_mut());
         append(menu, CMD_SMART_CAPTURE, "Smart capture\tCtrl+Shift+F8");
+        append(menu, CMD_SCREENSHOT, "Screenshot\tCtrl+Shift+F9");
         if processing {
             append_with_flags(
                 menu,
@@ -108,9 +111,9 @@ fn show_menu(window: HWND, recording: bool, processing: bool) -> Option<TrayActi
                 menu,
                 CMD_RECORD,
                 if recording {
-                    "Stop and optimize recording\tCtrl+Shift+F9"
+                    "Stop and optimize recording\tCtrl+Shift+F11"
                 } else {
-                    "Record a region\tCtrl+Shift+F9"
+                    "Record a region\tCtrl+Shift+F11"
                 },
             );
         }
@@ -138,6 +141,7 @@ fn show_menu(window: HWND, recording: bool, processing: bool) -> Option<TrayActi
         match command {
             CMD_OPEN_PARKER => Some(TrayAction::OpenParker),
             CMD_SMART_CAPTURE => Some(TrayAction::SmartCapture),
+            CMD_SCREENSHOT => Some(TrayAction::Screenshot),
             CMD_RECORD => Some(TrayAction::ToggleRecording),
             CMD_OPEN_RECORDINGS => Some(TrayAction::OpenRecordings),
             CMD_OPEN_SETTINGS => Some(TrayAction::OpenSettings),

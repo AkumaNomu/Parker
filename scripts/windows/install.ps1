@@ -128,8 +128,9 @@ PARKER_VIDEO_ENCODER=auto
 # PARKER_POST_PRESET=medium
 # PARKER_USE_GPU=1
 # PARKER_HOTKEY_OCR=F8
-# PARKER_HOTKEY_RECORD=F9
+# PARKER_HOTKEY_SHOT=F9
 # PARKER_HOTKEY_FOLDER=F10
+# PARKER_HOTKEY_RECORD=F11
 # PARKER_HOTKEY_QUIT=F12
 '@ | Set-Content -Path $settingsPath -Encoding UTF8
 }
@@ -205,9 +206,10 @@ if (-not $NoLaunch) {
 
 Write-Host ""
 Write-Host "Parker is installed." -ForegroundColor Green
-Write-Host "Notification-area icon: right-click for capture, recording, settings, and exit."
+Write-Host "Notification-area icon: right-click for capture, screenshot, recording, settings, and exit."
 Write-Host "Ctrl+Shift+F8   Smart capture: QR, table, code, or text"
-Write-Host "Ctrl+Shift+F9   Select/start region recording; press again to optimize and copy"
+Write-Host "Ctrl+Shift+F9   Screenshot: copy region pixels as image"
 Write-Host "Ctrl+Shift+F10  Open recordings"
+Write-Host "Ctrl+Shift+F11  Select/start region recording; press again to optimize and copy"
 Write-Host "Ctrl+Shift+F12  Stop recording and exit"
 Write-Host "Settings: $settingsPath"

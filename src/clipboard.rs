@@ -46,6 +46,34 @@ pub fn copy_file(path: &Path, owner: HWND) -> Result<(), String> {
     Ok(())
 }
 
+pub fn copy_image(path: &Path, owner: HWND) -> Result<(), String> {
+    let bytes = std::fs::read(path)
+        .map_err(|error| format!("Could not read screenshot {}: {error}", path.display()))?;
+    if bytes.len() < 54 || &bytes[0..2] != b"BM" {
+        return Err("Screenshot file is not a valid BMP image.".to_string());
+    }
+    let dib_bytes = &bytes[14..];
+    let _guard = open_and_clear(owner)?;
+    let memory = unsafe { GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, dib_bytes.len()) };
+    if memory.is_null() {
+        return Err("Could not allocate clipboard memory for image.".to_string());
+    }
+    let pointer = unsafe { GlobalLock(memory) } as *mut u8;
+    if pointer.is_null() {
+        unsafe { GlobalFree(memory) };
+        return Err("Could not lock clipboard memory for image.".to_string());
+    }
+    unsafe {
+        copy_nonoverlapping(dib_bytes.as_ptr(), pointer, dib_bytes.len());
+        GlobalUnlock(memory);
+    }
+    if unsafe { SetClipboardData(CF_DIB, memory) }.is_null() {
+        unsafe { GlobalFree(memory) };
+        return Err("Could not place image on the clipboard.".to_string());
+    }
+    Ok(())
+}
+
 pub fn copy_text(text: &str, owner: HWND) -> Result<(), String> {
     let _guard = open_and_clear(owner)?;
     let normalized = text

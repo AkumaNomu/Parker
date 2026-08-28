@@ -33,6 +33,13 @@ PARKER_VIDEO_ENCODER=auto
 # Advanced video overrides (uncomment to override the compression profile)
 # PARKER_POST_CRF=24
 # PARKER_POST_PRESET=medium
+
+# Hotkeys (Windows-only; Ctrl+Shift is always applied)
+# PARKER_HOTKEY_OCR=F8
+# PARKER_HOTKEY_SHOT=F9
+# PARKER_HOTKEY_FOLDER=F10
+# PARKER_HOTKEY_RECORD=F11
+# PARKER_HOTKEY_QUIT=F12
 "#;
 
 #[derive(Clone, Debug)]
@@ -126,7 +133,7 @@ pub(crate) fn data_directory() -> PathBuf {
         .join("Parker")
 }
 
-fn write_atomic(path: &Path, content: &str) -> Result<(), String> {
+pub(crate) fn write_atomic(path: &Path, content: &str) -> Result<(), String> {
     let temporary = path.with_extension("tmp");
     let mut file = fs::File::create(&temporary)
         .map_err(|error| format!("Could not create {}: {error}", temporary.display()))?;

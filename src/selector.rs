@@ -58,7 +58,7 @@ pub fn select_region(prompt: &str) -> Result<Option<ScreenRect>, String> {
     let instance = unsafe { GetModuleHandleW(null_mut()) };
     let window = unsafe {
         CreateWindowExW(
-            WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+            WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
             class_name.as_ptr(),
             title.as_ptr(),
             WS_POPUP,
@@ -78,7 +78,6 @@ pub fn select_region(prompt: &str) -> Result<Option<ScreenRect>, String> {
     }
 
     unsafe {
-        SetLayeredWindowAttributes(window, 0, 145, LWA_ALPHA);
         ShowWindow(window, SW_SHOW);
         UpdateWindow(window);
         SetForegroundWindow(window);
@@ -87,10 +86,15 @@ pub fn select_region(prompt: &str) -> Result<Option<ScreenRect>, String> {
 
     let mut message = MSG::default();
     loop {
-        let done = state()
-            .lock()
-            .map_err(|_| "The region selector state is unavailable.".to_string())?
-            .done;
+        let done = match state().lock() {
+            Ok(guard) => guard.done,
+            Err(_) => {
+                unsafe {
+                    DestroyWindow(window);
+                }
+                return Err("The region selector state is unavailable.".to_string());
+            }
+        };
         if done {
             break;
         }
@@ -261,7 +265,7 @@ unsafe fn paint_selector(window: HWND) {
             let right = selection.start.x.max(selection.current.x) - selection.virtual_x;
             let bottom = selection.start.y.max(selection.current.y) - selection.virtual_y;
 
-            let pen = CreatePen(PS_SOLID, 3, rgb(255, 255, 255));
+            let pen = CreatePen(PS_SOLID, 1, rgb(255, 255, 255));
             let old_pen = SelectObject(device, pen as HGDIOBJ);
             let old_brush = SelectObject(device, GetStockObject(NULL_BRUSH));
             Rectangle(device, left, top, right, bottom);

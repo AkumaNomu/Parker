@@ -48,11 +48,11 @@ pub fn first_web_url(payloads: &[String]) -> Option<&str> {
     payloads
         .iter()
         .map(String::as_str)
-        .find(|payload| is_safe_web_url(payload))
+        .find(|payload| crate::qr_common::is_safe_web_url(payload))
 }
 
 pub fn open_web_url(url: &str) -> Result<(), String> {
-    if !is_safe_web_url(url) {
+    if !crate::qr_common::is_safe_web_url(url) {
         return Err("Only HTTP and HTTPS QR links can be opened automatically.".to_string());
     }
 
@@ -75,32 +75,5 @@ pub fn open_web_url(url: &str) -> Result<(), String> {
         ))
     } else {
         Ok(())
-    }
-}
-
-fn is_safe_web_url(value: &str) -> bool {
-    let trimmed = value.trim();
-    if trimmed.len() > 4096
-        || trimmed
-            .chars()
-            .any(|character| character.is_control() || character.is_whitespace())
-    {
-        return false;
-    }
-
-    let lower = trimmed.to_ascii_lowercase();
-    lower.starts_with("https://") || lower.starts_with("http://")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_safe_web_url;
-
-    #[test]
-    fn accepts_http_urls_only() {
-        assert!(is_safe_web_url("https://example.com/path"));
-        assert!(is_safe_web_url("http://localhost:3000"));
-        assert!(!is_safe_web_url("javascript:alert(1)"));
-        assert!(!is_safe_web_url("https://example.com/a b"));
     }
 }

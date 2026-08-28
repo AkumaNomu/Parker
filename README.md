@@ -1,8 +1,8 @@
 # Parker
 
-Parker is a local, hotkey-first Windows and Fedora Linux capture utility written in Rust. It can
-understand a selected screen region or record one, then place the useful result
-straight onto the Windows clipboard.
+Parker is a local, hotkey-first Windows and Linux capture utility written in
+Rust. It can understand a selected screen region or record one, then place the
+useful result straight onto your clipboard.
 
 ## What Parker does
 
@@ -22,7 +22,13 @@ Automatic OCR mode uses one Tesseract TSV pass for classification and text
 reconstruction instead of running OCR twice. QR decoding only performs its
 higher-cost upscale retry when the fast first pass finds nothing.
 
-### Region recording — `Ctrl + Shift + F9`
+### Screenshot — `Ctrl + Shift + F9`
+
+Drag over a region and Parker copies the pixels as `image/png` (Windows `CF_DIB`)
+straight to the clipboard — no OCR. Paste into Slack, Figma, GIMP, or any image
+target.
+
+### Region recording — `Ctrl + Shift + F11`
 
 Press the hotkey, drag over a region, and Parker starts recording it. The mouse
 cursor is always excluded. A draggable timer and stop control remains visible
@@ -68,8 +74,9 @@ screen capture.
 | Hotkey | Action |
 |---|---|
 | `Ctrl + Shift + F8` | Select a region for QR detection or smart OCR. |
-| `Ctrl + Shift + F9` | Select/start region recording; press again to optimize and copy. |
+| `Ctrl + Shift + F9` | Screenshot — copy region pixels as image. |
 | `Ctrl + Shift + F10` | Open the recordings directory. |
+| `Ctrl + Shift + F11` | Select/start region recording; press again to optimize and copy. |
 | `Ctrl + Shift + F12` | Finalize an active recording and exit. |
 
 Press `Esc` or right-click to cancel a selector.
@@ -106,41 +113,76 @@ Useful installer options:
 .\install.ps1 -NoLaunch
 ```
 
-Useful runtime commands:
-
-```powershell
-.\parker.exe config          # terminal settings helper for compression
-.\parker.exe batch <folder>  # finalize any .capture.mkv files in a folder
-.\parker.exe --self-update   # check GitHub Releases for a newer Parker
-```
-
-### Fedora Linux
+### Fedora Linux and other distributions
 
 Download `parker-<version>-linux-x64.tar.gz`, extract it, then run:
 
 ```bash
 ./install-linux.sh
-sudo dnf install grim slurp wf-recorder ffmpeg tesseract wl-clipboard libnotify
 ```
 
-Parker supports Fedora Wayland. Bind these commands in **System Settings →
-Keyboard → Shortcuts → Add Command**:
+Parker captures only selected regions. On Wayland, use `grim` with `slurp`,
+KDE Spectacle, or the GNOME screenshot portal; on X11, use maim, scrot, or
+ImageMagick.
+For example, on Fedora:
+
+```bash
+sudo dnf install grim slurp wf-recorder ffmpeg tesseract wl-clipboard libnotify python3-gobject
+```
+
+Bind these commands in **System Settings → Keyboard → Shortcuts → Add Command**
+(or your compositor's keybind config):
 
 | Shortcut | Command |
 |---|---|
 | `Ctrl+Shift+F8` | `parker capture` |
-| `Ctrl+Shift+F9` | `parker toggle` |
+| `Ctrl+Shift+F9` | `parker shot` |
 | `Ctrl+Shift+F10` | `parker open` |
+| `Ctrl+Shift+F11` | `parker toggle` |
 
-`capture` selects a region, copies QR data or OCR text, and opens safe QR web
-links. `record` selects and starts a region recording; `stop` finalizes an H.264
-MP4 and copies its file URI to the Wayland clipboard. `toggle` starts or stops a
-recording. Fedora keeps global shortcuts in the desktop, because Wayland does
-not let ordinary apps register them directly.
+`capture` selects a region, copies QR data or smart OCR output — tables become
+TSV, code keeps its layout, other text is copied as-is — and opens safe QR web
+links. `shot` copies the region as an image instead of running OCR. `record`
+selects and starts a region recording; `stop` finalizes an H.264 MP4 and
+copies its file URI to the clipboard. `toggle` starts or stops a recording.
+Wayland does not let ordinary apps register global shortcuts, so shortcuts stay
+in the desktop settings.
+
+Screenshots are the primary image workflow; video recording is available on
+`F11`/`toggle` but intentionally de-prioritized. Region recordings try NVIDIA
+NVENC, Intel Quick Sync, AMD AMF, and VAAPI hardware encoders before falling
+back to software x264, honoring the same compression profiles and size limits
+as Windows.
+
+Note: `wf-recorder` requires a compositor with wlr-screencopy support. It does
+not provide a portable KDE or GNOME recording path; use a supported compositor
+or another recorder. On GNOME Wayland, screenshots use the local
+`xdg-desktop-portal-gnome` picker through the bundled `portal_capture.py`
+helper when PyGObject (`python3-gobject`) is installed.
+
+## Useful runtime commands
+
+```text
+parker capture       Select a region: QR data or smart OCR text to clipboard.
+parker shot          Select a region and copy the image itself.
+parker record/stop   Start/finish a region recording (MP4 to clipboard).
+parker toggle        Start a recording or finish the active one.
+parker open          Open the recordings folder.
+parker batch DIR     Finalize leftover .capture.mkv files.
+parker gui           Open action buttons and a settings editor on Linux.
+parker --self-update Update Parker from GitHub Releases (uses curl).
+parker --version     Print the version.
+```
+
+On Linux, `gui` opens capture actions and a settings editor, while `config`
+opens `~/.config/parker/settings.env`. On Windows,
+`.\parker.exe config` starts the terminal settings helper.
 
 ## Build and install from source
 
-Install Rust, reopen PowerShell, then run the installer:
+### Option 1: Install scripts (recommended)
+
+Windows — install Rust, reopen PowerShell, then run the installer:
 
 ```powershell
 winget install --id Rustlang.Rustup --exact
@@ -148,14 +190,43 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\windows\install.ps1
 ```
 
-Build without installing:
+Linux — use the bundled installer after building or from a release tarball:
+
+```bash
+./scripts/linux/install-linux.sh
+```
+
+Build without installing (Windows — copies to `dist\parker.exe` with icon + manifest):
 
 ```powershell
 .\scripts\windows\build.ps1
 ```
 
-The executable is copied to `dist\parker.exe` with the Parker icon and Windows
-manifest embedded.
+### Option 2: Build from source
+
+Same as MemReRust — plain `cargo`:
+
+```sh
+git clone https://github.com/AkumaNomu/Parker
+cd Parker
+cargo build --release
+sudo install -Dm755 target/release/parker /usr/local/bin/parker
+```
+
+On Linux you may also want the desktop entry:
+
+```sh
+sudo install -Dm644 packaging/linux/parker.desktop /usr/share/applications/io.github.akumanomu.Parker.desktop
+```
+
+On Windows:
+
+```sh
+git clone https://github.com/AkumaNomu/Parker
+cd Parker
+cargo build --release
+# target\release\parker.exe is ready — run it or use .\scripts\windows\install.ps1 to register it
+```
 
 ## Local settings
 
@@ -181,15 +252,17 @@ Parker next starts. Process-level environment variables take precedence.
 | `PARKER_RECORD_FPS` | `30` | Capture rate, `1`–`120`. |
 | `PARKER_COMPRESSION` | `balanced` | `compact`, `balanced`, or `quality`. |
 | `PARKER_VIDEO_ENCODER` | `auto` | `auto`, `nvenc`, `qsv`, `amf`, or `libx264`. |
-| `PARKER_AUDIO_DEVICE` | unset | Optional FFmpeg DirectShow audio device name. |
+| `PARKER_AUDIO_DEVICE` | unset | Optional audio device: FFmpeg DirectShow name on Windows, PulseAudio source for wf-recorder on Linux. Setting it enables audio capture. |
+| `PARKER_RECORD_AUDIO` | `0` | Linux only. Set to `1` to record the default PulseAudio device without naming one. |
 | `PARKER_USE_GPU` | unset | Set to `1` to prefer GPU encoders only, with x264 fallback. |
 | `PARKER_MAX_WIDTH` | Profile-defined | Optional maximum final width; `0` disables size limiting. |
 | `PARKER_MAX_HEIGHT` | Profile-defined | Optional maximum final height; `0` disables size limiting. |
 | `PARKER_POST_CRF` | Profile-defined | Optional x264/NVENC quality override, `0`–`51`. |
 | `PARKER_POST_PRESET` | Profile-defined | Optional x264 speed/compression override. |
 | `PARKER_HOTKEY_OCR` | `F8` | Override smart-capture key; Parker still uses `Ctrl+Shift`. |
-| `PARKER_HOTKEY_RECORD` | `F9` | Override recording key; Parker still uses `Ctrl+Shift`. |
+| `PARKER_HOTKEY_SHOT` | `F9` | Override screenshot key; Parker still uses `Ctrl+Shift`. |
 | `PARKER_HOTKEY_FOLDER` | `F10` | Override recordings-folder key; Parker still uses `Ctrl+Shift`. |
+| `PARKER_HOTKEY_RECORD` | `F11` | Override recording key; Parker still uses `Ctrl+Shift`. |
 | `PARKER_HOTKEY_QUIT` | `F12` | Override exit key; Parker still uses `Ctrl+Shift`. |
 
 Compression profiles:
@@ -201,22 +274,27 @@ Compression profiles:
 | `quality` | CRF/CQ 20 | 2560×1440 | Higher visual fidelity. |
 
 Explicit maximum dimensions in `settings.env` override the profile defaults.
-Hardware encoders are detected once per Parker session and attempted safely; a
-failed hardware path automatically falls back to software x264. Capture, OCR,
-and transcoding processes run without console windows and at reduced priority
-so normal desktop work remains responsive.
+Hardware encoders are attempted safely; a failed hardware path automatically
+falls back to software x264. On Linux the candidates are NVENC, Quick Sync,
+AMF, and VAAPI (`PARKER_VIDEO_ENCODER=vaapi` is Linux-only), and failed
+attempts are appended to `ffmpeg.log` beside the recordings. Capture, OCR, and
+transcoding processes run without console windows and at reduced priority so
+normal desktop work remains responsive.
 
 ## Files and privacy
 
 Final videos are stored in:
 
 ```text
-%USERPROFILE%\Videos\Parker
+Windows: %USERPROFILE%\Videos\Parker
+Linux:   ~/Videos/Parker (XDG-aware)
 ```
 
-OCR screenshots are deleted after processing unless retention is enabled. A
-failed video conversion preserves the `.capture.mkv` source and writes details
-to `ffmpeg.log` or `postprocess.log` beside the recordings.
+OCR screenshots are deleted after processing unless retention is enabled
+(retained captures live under `Pictures\Parker` on Windows and
+`~/Pictures/Parker` on Linux). A failed video conversion preserves the
+`.capture.mkv` source and writes details to `ffmpeg.log` (plus
+`postprocess.log` on Windows) beside the recordings.
 
 Parker has no account, analytics, capture upload, or cloud OCR. The setup script
 uses the network only to obtain dependencies. QR auto-opening is restricted to
@@ -233,7 +311,8 @@ untrusted.
 ## Development
 
 ```powershell
-.\scripts\windows\check.ps1
+.\scripts\windows\check.ps1      # Windows
+./scripts/linux/check-linux.sh   # Linux
 ```
 
 This checks formatting, runs Clippy and tests, and builds a release executable.
@@ -251,18 +330,24 @@ scripts/windows/             Windows build, setup, validation, and release
 scripts/linux/               Linux install, validation, and release
 packaging/linux/             Linux desktop integration files
 .github/workflows/           Windows CI and releases
-docs/                        Architecture, setup, development, and roadmap
+docs/                        Architecture, setup, usage, development, roadmap
 settings.env.example         Template for the per-user settings file
 ```
 
+For daily use see `docs/USAGE.md` — one guide for both platforms.
+
 ## Known limitations
 
-- Audio is opt-in and depends on a valid FFmpeg DirectShow device name.
+- Audio is opt-in and depends on a valid device name (DirectShow on Windows,
+  PulseAudio on Linux).
 - OCR quality depends on source resolution, contrast, language data, and font.
 - Dense borderless tables may not be classified correctly.
 - Protected video and hardware overlays may appear blank.
-- Hotkeys are fixed in the current release.
+- Windows hotkey labels in the tray and dashboard are fixed text even when
+  `PARKER_HOTKEY_*` overrides are set.
 - Custom toast overlays currently appear on the primary monitor.
+- GNOME Wayland sessions can screenshot but cannot record (no
+  wlr-screencopy).
 
 ## Uninstall
 

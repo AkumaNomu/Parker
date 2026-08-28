@@ -47,7 +47,11 @@ pub fn run_config_ui() -> Result<(), String> {
     fn replace_or_append(lines: &mut Vec<String>, key: &str, value: &str) {
         let mut replaced = false;
         for line in lines.iter_mut() {
-            if line.trim_start().starts_with(key) {
+            let matches = line
+                .trim_start()
+                .strip_prefix(key)
+                .is_some_and(|rest| rest.starts_with('='));
+            if matches {
                 *line = format!("{key}={value}");
                 replaced = true;
                 break;
@@ -60,6 +64,7 @@ pub fn run_config_ui() -> Result<(), String> {
     replace_or_append(&mut lines, "PARKER_POST_CRF", &crf.to_string());
     replace_or_append(&mut lines, "PARKER_POST_PRESET", preset);
     let new_content = lines.join("\n");
-    fs::write(&settings_path, new_content).map_err(|e| format!("Could not write settings: {e}"))?;
+    settings::write_atomic(&settings_path, &new_content)
+        .map_err(|e| format!("Could not write settings: {e}"))?;
     Ok(())
 }

@@ -11,6 +11,11 @@ pub fn capture_region_to_bmp(rect: ScreenRect, output: &Path) -> Result<(), Stri
         return Err("The selected screenshot region is empty.".to_string());
     }
 
+    let image_size = (rect.width as usize)
+        .checked_mul(rect.height as usize)
+        .and_then(|pixels| pixels.checked_mul(4))
+        .ok_or_else(|| "The selected screenshot is too large.".to_string())?;
+
     let screen_dc = unsafe { GetDC(null_mut()) };
     if screen_dc.is_null() {
         return Err("Could not access the desktop for screenshot capture.".to_string());
@@ -60,10 +65,6 @@ pub fn capture_region_to_bmp(rect: ScreenRect, output: &Path) -> Result<(), Stri
         return Err("Windows could not copy the selected pixels.".to_string());
     }
 
-    let image_size = (rect.width as usize)
-        .checked_mul(rect.height as usize)
-        .and_then(|pixels| pixels.checked_mul(4))
-        .ok_or_else(|| "The selected screenshot is too large.".to_string())?;
     let mut pixels = vec![0u8; image_size];
     let mut info = BITMAPINFO {
         bmiHeader: BITMAPINFOHEADER {

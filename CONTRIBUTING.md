@@ -2,9 +2,10 @@
 
 ## Development requirements
 
-- Windows 10 or Windows 11.
+- Windows 10/11, or a Linux distribution with the runtime tools listed in
+  `docs/SETUP.md`.
 - Stable Rust with `rustfmt` and `clippy`.
-- PowerShell 5.1 or later.
+- PowerShell 5.1 or later (Windows workflows).
 - FFmpeg available through `PARKER_FFMPEG`, beside the executable, or on
   `PATH`.
 - Tesseract available through `PARKER_TESSERACT`, a standard installation, or
@@ -12,13 +13,20 @@
 
 ## Local workflow
 
+Windows:
+
 ```powershell
-rustup component add rustfmt clippy
-cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-cargo build --release
+.\scripts\windows\check.ps1
 ```
+
+Linux:
+
+```bash
+./scripts/linux/check-linux.sh
+```
+
+Both wrap: `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D
+warnings`, `cargo test`, and a release build.
 
 Run the application during development with:
 
@@ -28,6 +36,9 @@ Run the application during development with:
 
 Global hotkeys can be registered by only one Parker process at a time. Stop an
 installed instance before starting a development build.
+
+AI agents should read `AGENTS.md` before changing shared modules and record
+session notes in `memory.md`.
 
 ## Pull requests
 

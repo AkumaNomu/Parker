@@ -1,20 +1,24 @@
 [Desktop Entry]
 Type=Application
 Name=Parker
-Comment=Region OCR and recording
+Comment=Region OCR, screenshot, and recording
 Exec=parker
 Terminal=false
 Categories=Utility;AudioVideo;
-Actions=Capture;Record;Open;
+Actions=Capture;Screenshot;Open;Record;
 
 [Desktop Action Capture]
 Name=Smart capture
 Exec=parker capture
 
-[Desktop Action Record]
-Name=Start or stop recording
-Exec=parker toggle
+[Desktop Action Screenshot]
+Name=Screenshot
+Exec=parker shot
 
 [Desktop Action Open]
 Name=Open recordings
 Exec=parker open
+
+[Desktop Action Record]
+Name=Start or stop recording
+Exec=parker toggle

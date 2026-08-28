@@ -218,6 +218,7 @@ impl Recorder {
             .try_wait()
             .map_err(|error| format!("Could not inspect FFmpeg: {error}"))?
         {
+            let _ = fs::remove_file(&capture_path);
             return Err(format!(
                 "FFmpeg exited immediately with {status}. Details are in {}.",
                 log_path.display()
@@ -291,7 +292,13 @@ fn finalize_recording(
     wait_for_capture(child)?;
     let source_bytes = verify_nonempty(capture_path, "capture")?;
     let encoder = post_process(ffmpeg_path, capture_path, final_path, output_directory)?;
-    let final_bytes = verify_nonempty(final_path, "recording")?;
+    let final_bytes = match verify_nonempty(final_path, "recording") {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            let _ = fs::remove_file(final_path);
+            return Err(error);
+        }
+    };
     let _ = fs::remove_file(capture_path);
 
     Ok(RecordingResult {
@@ -512,6 +519,9 @@ fn detect_available_encoders(ffmpeg: &Path) -> Result<Vec<EncoderKind>, String> 
         .arg("-encoders")
         .output()
         .map_err(|error| format!("Could not inspect FFmpeg encoders: {error}"))?;
+    if !output.status.success() {
+        return Ok(vec![EncoderKind::X264]);
+    }
     let encoders = format!(
         "{}\n{}",
         String::from_utf8_lossy(&output.stdout),
@@ -629,7 +639,7 @@ fn recording_fps() -> u32 {
         .unwrap_or(30)
 }
 
-fn locate_ffmpeg() -> Option<PathBuf> {
+pub(crate) fn locate_ffmpeg() -> Option<PathBuf> {
     if let Some(path) = env::var_os("PARKER_FFMPEG") {
         let path = PathBuf::from(path);
         if path.is_file() {

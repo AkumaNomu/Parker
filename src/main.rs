@@ -4,7 +4,13 @@
 mod linux;
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
+mod qr_common;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+mod smart;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 mod translate;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+mod updater;
 
 #[cfg(target_os = "windows")]
 mod clipboard;
@@ -30,8 +36,6 @@ mod settings;
 mod toast;
 #[cfg(target_os = "windows")]
 mod tray;
-#[cfg(target_os = "windows")]
-mod updater;
 #[cfg(target_os = "windows")]
 mod win;
 #[cfg(target_os = "windows")]

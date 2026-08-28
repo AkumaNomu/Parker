@@ -179,6 +179,7 @@ pub const VK_ESCAPE: WPARAM = 0x1B;
 pub const VK_F8: UINT = 0x77;
 pub const VK_F9: UINT = 0x78;
 pub const VK_F10: UINT = 0x79;
+pub const VK_F11: UINT = 0x7A;
 pub const VK_F12: UINT = 0x7B;
 
 pub const MOD_CONTROL: UINT = 0x0002;
@@ -237,6 +238,7 @@ pub const DT_NOPREFIX: UINT = 0x0800;
 
 pub const CF_UNICODETEXT: UINT = 13;
 pub const CF_HDROP: UINT = 15;
+pub const CF_DIB: UINT = 8;
 pub const GMEM_MOVEABLE: UINT = 0x0002;
 pub const GMEM_ZEROINIT: UINT = 0x0040;
 

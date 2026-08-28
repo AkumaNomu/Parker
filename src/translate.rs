@@ -322,6 +322,11 @@ fn translate_libretranslate(text: &str, source: &str, target: &str) -> Result<St
     let endpoint = env::var("PARKER_TRANSLATE_ENDPOINT").map_err(|_| {
         "PARKER_TRANSLATE_ENDPOINT must be set, for example http://localhost:5000.".to_string()
     })?;
+    if endpoint.trim().is_empty() {
+        return Err(
+            "PARKER_TRANSLATE_ENDPOINT must be set, for example http://localhost:5000.".to_string(),
+        );
+    }
     let url = format!("{}/translate", endpoint.trim_end_matches('/'));
     let body = serde_json::json!({
         "q": text,

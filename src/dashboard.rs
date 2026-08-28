@@ -5,8 +5,10 @@ pub const WM_DASHBOARD_SMART_CAPTURE: UINT = WM_APP + 20;
 pub const WM_DASHBOARD_TOGGLE_RECORDING: UINT = WM_APP + 21;
 pub const WM_DASHBOARD_OPEN_RECORDINGS: UINT = WM_APP + 22;
 pub const WM_DASHBOARD_OPEN_SETTINGS: UINT = WM_APP + 23;
+pub const WM_DASHBOARD_SCREENSHOT: UINT = WM_APP + 24;
 
 const CMD_SMART_CAPTURE: usize = 2001;
+const CMD_SCREENSHOT: usize = 2005;
 const CMD_RECORD: usize = 2002;
 const CMD_OPEN_RECORDINGS: usize = 2003;
 const CMD_SETTINGS: usize = 2004;
@@ -36,7 +38,7 @@ pub fn create() -> Result<HWND, String> {
     }
 
     let width = 560;
-    let height = 390;
+    let height = 450;
     let x = (unsafe { GetSystemMetrics(SM_CXSCREEN) } - width) / 2;
     let y = (unsafe { GetSystemMetrics(SM_CYSCREEN) } - height) / 2;
     let window = unsafe {
@@ -87,7 +89,7 @@ pub fn set_recording(window: HWND, recording: bool) {
     set_status(
         window,
         if recording {
-            "Recording region. Stop here or press Ctrl+Shift+F9."
+            "Recording region. Stop here or press Ctrl+Shift+F11."
         } else {
             "Ready. Choose an action or use a keyboard shortcut."
         },
@@ -157,20 +159,31 @@ fn create_controls(window: HWND) -> Result<(), String> {
     create_control(
         window,
         "BUTTON",
-        "Record region\nCtrl+Shift+F9",
+        "Screenshot\nCtrl+Shift+F9",
         292,
         130,
         236,
         58,
+        CMD_SCREENSHOT,
+        BS_PUSHBUTTON | WS_TABSTOP,
+    )?;
+    create_control(
+        window,
+        "BUTTON",
+        "Record region\nCtrl+Shift+F11",
+        28,
+        205,
+        236,
+        46,
         CMD_RECORD,
         BS_PUSHBUTTON | WS_TABSTOP,
     )?;
     create_control(
         window,
         "BUTTON",
-        "Open recordings",
-        28,
-        208,
+        "Open recordings\nCtrl+Shift+F10",
+        292,
+        205,
         236,
         46,
         CMD_OPEN_RECORDINGS,
@@ -180,10 +193,10 @@ fn create_controls(window: HWND) -> Result<(), String> {
         window,
         "BUTTON",
         "Settings",
-        292,
-        208,
-        236,
-        46,
+        28,
+        272,
+        500,
+        38,
         CMD_SETTINGS,
         BS_PUSHBUTTON | WS_TABSTOP,
     )?;
@@ -192,7 +205,7 @@ fn create_controls(window: HWND) -> Result<(), String> {
         "STATIC",
         "Ready. Use the buttons, tray menu, or global shortcuts.",
         28,
-        278,
+        325,
         500,
         30,
         STATUS_LABEL as usize,
@@ -201,9 +214,9 @@ fn create_controls(window: HWND) -> Result<(), String> {
     create_control(
         window,
         "STATIC",
-        "Shortcuts: F8 smart capture | F9 record/stop | F10 recordings | F12 exit. Audio: set PARKER_AUDIO_DEVICE in settings.",
+        "Shortcuts: F8 capture | F9 screenshot | F10 recordings | F11 record/stop | F12 exit. Audio in settings.",
         28,
-        314,
+        360,
         500,
         36,
         0,
@@ -290,6 +303,7 @@ unsafe extern "system" fn window_proc(
             let command = wparam & 0xffff;
             let action = match command {
                 CMD_SMART_CAPTURE => WM_DASHBOARD_SMART_CAPTURE,
+                CMD_SCREENSHOT => WM_DASHBOARD_SCREENSHOT,
                 CMD_RECORD => WM_DASHBOARD_TOGGLE_RECORDING,
                 CMD_OPEN_RECORDINGS => WM_DASHBOARD_OPEN_RECORDINGS,
                 CMD_SETTINGS => WM_DASHBOARD_OPEN_SETTINGS,

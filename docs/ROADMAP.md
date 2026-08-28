@@ -2,16 +2,21 @@
 
 ## High-value workflow additions
 
-1. Screenshot image-to-clipboard mode independent of OCR.
-2. Searchable local capture and clipboard history.
-3. System-audio and microphone recording profiles.
+1. Searchable local capture and clipboard history.
+3. System-audio and microphone recording profiles beyond the opt-in device
+   passthrough.
 4. Active-window recording that follows window movement.
 5. Pause, resume, and discard controls for recordings.
 6. Annotation and redaction before copying an image.
 7. Scrolling capture for long pages and conversations.
 8. Local speech transcription for completed recordings.
 9. User-defined post-capture commands and application-specific routing rules.
-10. Configurable hotkeys and a tray settings interface.
+
+Shipped recently: shared table/code/text OCR classification on both platforms,
+Linux/Windows image-to-clipboard (`shot` / `Ctrl+Shift+F9`), X11
+capture/clipboard fallbacks, VAAPI encoding, curl-based self-update,
+multi-distro install commands, and screenshot-prioritized hotkeys
+(`F8` capture, `F9` screenshot, `F11` record) (see CHANGELOG).
 
 ## Detection improvements
 
@@ -29,3 +34,7 @@
 - Per-monitor toast placement and stacked notifications.
 - Signed MSIX release variant.
 - Automatic update checks with explicit user consent.
+- GNOME Wayland recording via the ScreenCast portal.
+- Fix tray/dashboard hotkey labels to reflect `PARKER_HOTKEY_*` overrides;
+  destroy tray icons on state changes; clean up GDI handles on error paths
+  flagged in the 2026-08 audit.

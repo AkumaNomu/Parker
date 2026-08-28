@@ -68,10 +68,6 @@ impl RecordingIndicator {
                 return;
             }
 
-            let region = CreateRoundRectRgn(0, 0, WIDTH + 1, HEIGHT + 1, 24, 24);
-            if !region.is_null() && SetWindowRgn(window, region, TRUE) == 0 {
-                DeleteObject(region as HGDIOBJ);
-            }
             if SetWindowDisplayAffinity(window, WDA_EXCLUDEFROMCAPTURE) == 0 {
                 DestroyWindow(window);
                 let _ = sender.send(Err(
@@ -296,21 +292,14 @@ unsafe fn paint_indicator(window: HWND) {
         .unwrap_or_default();
 
     let background = CreateSolidBrush(rgb(30, 31, 35));
-    let border = CreatePen(PS_SOLID, 1, rgb(68, 69, 74));
     let old_brush = SelectObject(device, background as HGDIOBJ);
-    let old_pen = SelectObject(device, border as HGDIOBJ);
-    RoundRect(device, 0, 0, WIDTH, HEIGHT, 24, 24);
+    let old_pen = SelectObject(device, GetStockObject(NULL_BRUSH));
+    Rectangle(device, 0, 0, WIDTH, HEIGHT);
     SelectObject(device, old_pen);
     SelectObject(device, old_brush);
-    DeleteObject(border as HGDIOBJ);
     DeleteObject(background as HGDIOBJ);
 
-    let pulse = if (elapsed.as_millis() / 500).is_multiple_of(2) {
-        rgb(255, 59, 48)
-    } else {
-        rgb(178, 42, 36)
-    };
-    let red = CreateSolidBrush(pulse);
+    let red = CreateSolidBrush(rgb(255, 59, 48));
     let old_brush = SelectObject(device, red as HGDIOBJ);
     let old_pen = SelectObject(device, GetStockObject(NULL_BRUSH));
     Ellipse(device, 18, 24, 32, 38);
@@ -321,7 +310,7 @@ unsafe fn paint_indicator(window: HWND) {
     let stop_background = CreateSolidBrush(rgb(76, 36, 38));
     let old_brush = SelectObject(device, stop_background as HGDIOBJ);
     let old_pen = SelectObject(device, GetStockObject(NULL_BRUSH));
-    RoundRect(device, WIDTH - 54, 10, WIDTH - 10, HEIGHT - 10, 16, 16);
+    Rectangle(device, WIDTH - 54, 10, WIDTH - 10, HEIGHT - 10);
     SelectObject(device, old_pen);
     SelectObject(device, old_brush);
     DeleteObject(stop_background as HGDIOBJ);
