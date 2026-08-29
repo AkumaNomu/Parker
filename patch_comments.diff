@@ -1,0 +1,65 @@
+<<<<<<< SEARCH
+    let mut heights = rows.iter().map(|row| row.height).collect::<Vec<i32>>();
+    let median_height = median_i32(&mut heights).max(1);
+    let tolerance = (median_height * 2).max(24);
+    let mut starts_buffer = Vec::with_capacity(rows.len());
+
+    for column in 0..column_count {
+        starts_buffer.clear();
+        starts_buffer.extend(rows.iter().map(|row| row.cells[column].left));
+        let median = median_i32(&mut starts_buffer);
+=======
+    let mut heights = rows.iter().map(|row| row.height).collect::<Vec<i32>>();
+    let median_height = median_i32(&mut heights).max(1);
+    let tolerance = (median_height * 2).max(24);
+
+    // Bolt: Reuse a single buffer for median calculations across columns
+    // to avoid allocating a new Vec per column.
+    let mut starts_buffer = Vec::with_capacity(rows.len());
+
+    for column in 0..column_count {
+        starts_buffer.clear();
+        starts_buffer.extend(rows.iter().map(|row| row.cells[column].left));
+        let median = median_i32(&mut starts_buffer);
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+    let mut cells = Vec::new();
+    let mut words_iter = words.into_iter();
+    let first = words_iter.next().unwrap(); // safe because words.len() >= 2
+    let mut current_left = first.left;
+    let mut current_text = first.text;
+    let mut previous_right = first.left + first.width;
+
+    for word in words_iter {
+=======
+    let mut cells = Vec::new();
+
+    // Bolt: Use into_iter() to take ownership of strings directly
+    // rather than calling clone() on each word in the loop.
+    let mut words_iter = words.into_iter();
+    let first = words_iter.next().unwrap(); // safe because words.len() >= 2
+    let mut current_left = first.left;
+    let mut current_text = first.text;
+    let mut previous_right = first.left + first.width;
+
+    for word in words_iter {
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+fn median_i32(values: &mut [i32]) -> i32 {
+    if values.is_empty() {
+        return 0;
+    }
+    values.sort_unstable();
+    values[values.len() / 2]
+}
+=======
+// Bolt: Accept a mutable slice instead of Vec to sort in-place
+// and prevent unnecessary clone() allocations at the call site.
+fn median_i32(values: &mut [i32]) -> i32 {
+    if values.is_empty() {
+        return 0;
+    }
+    values.sort_unstable();
+    values[values.len() / 2]
+}
+>>>>>>> REPLACE

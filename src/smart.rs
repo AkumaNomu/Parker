@@ -179,17 +179,15 @@ pub fn reconstruct_text_from_tsv(tsv: &str) -> String {
         .flat_map(|line| line.iter().map(|word| word.left))
         .min()
         .unwrap_or(0);
-    let median_character_width = median_i32(
-        by_line
-            .values()
-            .flat_map(|line| line.iter())
-            .filter_map(|word| {
-                let count = word.text.chars().count() as i32;
-                (count > 0).then_some((word.width / count).max(1))
-            })
-            .collect(),
-    )
-    .max(4);
+    let mut widths = by_line
+        .values()
+        .flat_map(|line| line.iter())
+        .filter_map(|word| {
+            let count = word.text.chars().count() as i32;
+            (count > 0).then_some((word.width / count).max(1))
+        })
+        .collect::<Vec<i32>>();
+    let median_character_width = median_i32(&mut widths).max(4);
 
     for (_, mut words) in by_line {
         words.sort_by_key(|word| word.left);
@@ -262,12 +260,19 @@ pub fn extract_table(tsv: &str) -> Option<String> {
         return None;
     }
 
-    let median_height = median_i32(rows.iter().map(|row| row.height).collect()).max(1);
+    let mut heights = rows.iter().map(|row| row.height).collect::<Vec<i32>>();
+    let median_height = median_i32(&mut heights).max(1);
     let tolerance = (median_height * 2).max(24);
+
+    // Bolt: Reuse a single buffer for median calculations across columns
+    // to avoid allocating a new Vec per column.
+    let mut starts_buffer = Vec::with_capacity(rows.len());
+
     for column in 0..column_count {
-        let starts: Vec<i32> = rows.iter().map(|row| row.cells[column].left).collect();
-        let median = median_i32(starts.clone());
-        let aligned = starts
+        starts_buffer.clear();
+        starts_buffer.extend(rows.iter().map(|row| row.cells[column].left));
+        let median = median_i32(&mut starts_buffer);
+        let aligned = starts_buffer
             .iter()
             .filter(|start| (**start - median).abs() <= tolerance)
             .count();
@@ -301,23 +306,29 @@ fn split_row(words: Vec<Word>) -> Option<Row> {
     }
 
     let top = words.iter().map(|word| word.top).min()?;
-    let height = median_i32(words.iter().map(|word| word.height).collect()).max(1);
-    let character_widths: Vec<i32> = words
+    let mut heights = words.iter().map(|word| word.height).collect::<Vec<i32>>();
+    let height = median_i32(&mut heights).max(1);
+    let mut character_widths: Vec<i32> = words
         .iter()
         .filter_map(|word| {
             let count = word.text.chars().count() as i32;
             (count > 0).then_some((word.width / count).max(1))
         })
         .collect();
-    let character_width = median_i32(character_widths).max(4);
+    let character_width = median_i32(&mut character_widths).max(4);
     let gap_threshold = (character_width * 3).max(height).max(14);
 
     let mut cells = Vec::new();
-    let mut current_left = words[0].left;
-    let mut current_text = words[0].text.clone();
-    let mut previous_right = words[0].left + words[0].width;
 
-    for word in words.into_iter().skip(1) {
+    // Bolt: Use into_iter() to take ownership of strings directly
+    // rather than calling clone() on each word in the loop.
+    let mut words_iter = words.into_iter();
+    let first = words_iter.next().unwrap(); // safe because words.len() >= 2
+    let mut current_left = first.left;
+    let mut current_text = first.text;
+    let mut previous_right = first.left + first.width;
+
+    for word in words_iter {
         let gap = word.left - previous_right;
         if gap > gap_threshold {
             cells.push(Cell {
@@ -325,7 +336,7 @@ fn split_row(words: Vec<Word>) -> Option<Row> {
                 text: current_text.trim().to_string(),
             });
             current_left = word.left;
-            current_text = word.text.clone();
+            current_text = word.text;
         } else {
             if !current_text.is_empty() {
                 current_text.push(' ');
@@ -376,7 +387,9 @@ fn parse_tsv(tsv: &str) -> Vec<Word> {
         .collect()
 }
 
-fn median_i32(mut values: Vec<i32>) -> i32 {
+// Bolt: Accept a mutable slice instead of Vec to sort in-place
+// and prevent unnecessary clone() allocations at the call site.
+fn median_i32(values: &mut [i32]) -> i32 {
     if values.is_empty() {
         return 0;
     }
