@@ -1,0 +1,3 @@
+## 2024-08-29 - In-place Sorting Avoids Allocations in OCR Table Parsing
+**Learning:** The `smart.rs` module performs extensive median calculations over row heights, text widths, and table cell bounds during OCR table layout inference. Previously, these were calculated by collecting vectors and repeatedly cloning them for calculation, inducing unnecessary heap allocations during parsing.
+**Action:** Always prefer modifying data structures in-place or utilizing pre-allocated buffers (`Vec::with_capacity`, `clear()`, `extend()`) when calculating statistical metrics across datasets inside inner loops (like column/row boundary estimation).
